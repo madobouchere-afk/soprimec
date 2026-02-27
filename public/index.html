@@ -123,9 +123,13 @@ main{padding:12px}
 
 <header>
 <div class="logo">SOPRIMEC</div>
-<div>
+<div style="flex:1">
 <h1>SOPRIMEC - Gestion Immobilière Professionnelle</h1>
 <p>Agence immobilière - Dakar, Sénégal</p>
+</div>
+<div style="display:flex;align-items:center;gap:12px">
+<span id="userDisplay" style="font-size:.85rem;opacity:.8"></span>
+<button onclick="logout()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.8rem;font-weight:600;transition:.2s" onmouseover="this.style.background='rgba(255,255,255,.25)'" onmouseout="this.style.background='rgba(255,255,255,.15)'"><i class="fas fa-sign-out-alt"></i> Deconnexion</button>
 </div>
 </header>
 
@@ -788,7 +792,20 @@ async function refreshAll() {
 }
 
 // ===== START =====
+async function logout() {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  window.location.href = '/login';
+}
+
 (async () => {
+  // Check auth and display user name
+  try {
+    const me = await fetch('/api/auth/me');
+    if (me.ok) {
+      const user = await me.json();
+      document.getElementById('userDisplay').textContent = user.nom || user.username;
+    }
+  } catch(e) {}
   await refreshAll();
   const now = new Date();
   document.getElementById('reportMonth').value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');

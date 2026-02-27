@@ -1,12 +1,80 @@
 const express = require('express');
 const multer = require('multer');
+const session = require('express-session');
+const bcrypt = require('bcryptjs');
 const path = require('path');
 const fs = require('fs');
 const db = require('./database');
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+
+// Session middleware
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'soprimec-secret-key-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    httpOnly: true,
+  }
+}));
+
+// Create default admin if no users exist
+const userCount = db.prepare('SELECT COUNT(*) as c FROM users').get();
+if (userCount.c === 0) {
+  const hash = bcrypt.hashSync('admin123', 10);
+  db.prepare('INSERT INTO users (username, password, nom, role) VALUES (?, ?, ?, ?)')
+    .run('admin', hash, 'Administrateur', 'admin');
+  console.log('Default admin created: admin / admin123');
+}
+
+// Serve login page (no auth needed)
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// Auth API routes (no auth needed)
+app.post('/api/auth/login', (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Identifiants requis' });
+  const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+  if (!user || !bcrypt.compareSync(password, user.password)) {
+    return res.status(401).json({ error: 'Identifiants incorrects' });
+  }
+  req.session.userId = user.id;
+  req.session.username = user.username;
+  req.session.role = user.role;
+  req.session.nom = user.nom;
+  res.json({ ok: true, nom: user.nom, role: user.role });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  req.session.destroy();
+  res.json({ ok: true });
+});
+
+app.get('/api/auth/me', (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Non connecté' });
+  res.json({ username: req.session.username, nom: req.session.nom, role: req.session.role });
+});
+
+// Auth middleware — protect everything below
+function requireAuth(req, res, next) {
+  if (req.session && req.session.userId) return next();
+  // For API calls, return 401
+  if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Non autorisé' });
+  // For page requests, redirect to login
+  res.redirect('/login');
+}
+
+// Static files for logged-in users only (main app)
+app.get('/', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Protect all /api routes (except auth ones above)
+app.use('/api', requireAuth);
 
 // Uploads directory
 const uploadsDir = path.join(__dirname, 'uploads');

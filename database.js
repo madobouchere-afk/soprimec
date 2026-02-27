@@ -77,6 +77,15 @@ db.exec(`
     description TEXT DEFAULT '',
     statut TEXT DEFAULT 'Planifie'
   );
+
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    nom TEXT DEFAULT '',
+    role TEXT DEFAULT 'user',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 // Seed demo data if empty

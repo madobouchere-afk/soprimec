@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOPRIMEC - Connexion</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--primary:#2D7F8F;--primary-dark:#1F5A67}
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:#F3F4F6;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.login-container{width:100%;max-width:400px;padding:20px}
+.login-card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.1);overflow:hidden}
+.login-header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;padding:32px 24px;text-align:center}
+.login-header .logo{width:70px;height:70px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--primary);font-size:11px;margin:0 auto 16px;text-align:center}
+.login-header h1{font-size:1.3rem;font-weight:700}
+.login-header p{font-size:.85rem;opacity:.8;margin-top:4px}
+.login-body{padding:32px 24px}
+.form-group{margin-bottom:20px}
+.form-group label{display:block;font-size:.82rem;font-weight:600;color:#374151;margin-bottom:6px}
+.form-group input{width:100%;padding:12px 14px;border:1px solid #D1D5DB;border-radius:8px;font-size:.9rem;outline:none;transition:.2s;font-family:inherit}
+.form-group input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(45,127,143,.15)}
+.login-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;border:none;border-radius:8px;font-size:.95rem;font-weight:600;cursor:pointer;transition:.2s;font-family:inherit}
+.login-btn:hover{opacity:.9;transform:translateY(-1px)}
+.login-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.error-msg{background:#FEE2E2;color:#991B1B;padding:10px 14px;border-radius:8px;font-size:.82rem;margin-bottom:16px;display:none}
+.error-msg.show{display:block}
+</style>
+</head>
+<body>
+<div class="login-container">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="logo">SOPRIMEC</div>
+      <h1>Gestion Immobiliere</h1>
+      <p>Connectez-vous pour acceder a votre espace</p>
+    </div>
+    <div class="login-body">
+      <div id="error" class="error-msg"></div>
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="username">Nom d'utilisateur</label>
+          <input type="text" id="username" placeholder="Entrez votre identifiant" required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="password">Mot de passe</label>
+          <input type="password" id="password" placeholder="Entrez votre mot de passe" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="login-btn" id="loginBtn">Se connecter</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('loginBtn');
+  const errorEl = document.getElementById('error');
+  errorEl.classList.remove('show');
+  btn.disabled = true;
+  btn.textContent = 'Connexion...';
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value,
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      window.location.href = '/';
+    } else {
+      errorEl.textContent = data.error || 'Erreur de connexion';
+      errorEl.classList.add('show');
+    }
+  } catch (err) {
+    errorEl.textContent = 'Erreur réseau';
+    errorEl.classList.add('show');
+  }
+  btn.disabled = false;
+  btn.textContent = 'Se connecter';
+});
+</script>
+</body>
+</html>
