@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOPRIMEC - Gestion Immobilière</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--primary:#2D7F8F;--primary-dark:#1F5A67;--primary-light:#5DA5B3;--secondary:#4A5568;--success:#10B981;--danger:#EF4444;--warning:#F59E0B;--bg:#F3F4F6;--white:#fff;--text:#1F2937;--text-light:#6B7280;--shadow:0 2px 8px rgba(0,0,0,.08);--radius:12px}
+body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;padding:18px 24px;display:flex;align-items:center;gap:18px;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.logo{width:70px;height:70px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--primary);font-size:12px;text-align:center;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+header h1{font-size:1.4rem;font-weight:700}
+header p{font-size:.85rem;opacity:.85}
+nav{background:#fff;border-bottom:1px solid #E5E7EB;display:flex;overflow-x:auto;box-shadow:var(--shadow)}
+nav button{flex:1;min-width:110px;padding:12px 8px;border:none;background:none;cursor:pointer;font-size:.78rem;font-weight:600;color:var(--text-light);transition:.2s;border-bottom:3px solid transparent;white-space:nowrap}
+nav button:hover{color:var(--primary);background:#F0FDFA}
+nav button.active{color:var(--primary);border-bottom-color:var(--primary);background:#F0FDFA}
+main{max-width:1300px;margin:0 auto;padding:20px}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px}
+.kpi-card{background:#fff;padding:20px;border-radius:var(--radius);box-shadow:var(--shadow);text-align:center;transition:.3s}
+.kpi-card:hover{transform:translateY(-3px);box-shadow:0 6px 16px rgba(0,0,0,.12)}
+.kpi-card .icon{font-size:1.8rem;margin-bottom:8px}
+.kpi-card .value{font-size:1.6rem;font-weight:800;color:var(--primary)}
+.kpi-card .value.danger{color:var(--danger)}
+.kpi-card .value.warning{color:var(--warning)}
+.kpi-card .label{font-size:.8rem;color:var(--text-light);margin-top:4px}
+.toolbar{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.toolbar input,.toolbar select{padding:10px 14px;border:1px solid #D1D5DB;border-radius:8px;font-size:.85rem;outline:none;transition:.2s}
+.toolbar input:focus,.toolbar select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(45,127,143,.15)}
+.toolbar input{flex:1;min-width:200px}
+.btn{padding:10px 18px;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;transition:.2s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-success{background:var(--success);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-warning{background:var(--warning);color:#fff}
+.btn-secondary{background:var(--secondary);color:#fff}
+.btn-sm{padding:6px 12px;font-size:.78rem}
+.btn-whatsapp{background:#25D366;color:#fff}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+thead{background:var(--primary);color:#fff}
+th{padding:12px 14px;text-align:left;font-size:.8rem;font-weight:600;white-space:nowrap}
+td{padding:10px 14px;font-size:.82rem;border-bottom:1px solid #F3F4F6}
+tr:hover td{background:#F9FAFB}
+.table-wrap{overflow-x:auto;border-radius:var(--radius);margin-bottom:20px}
+.badge{padding:4px 10px;border-radius:20px;font-size:.72rem;font-weight:600;display:inline-block}
+.badge-success{background:#D1FAE5;color:#065F46}
+.badge-danger{background:#FEE2E2;color:#991B1B}
+.badge-warning{background:#FEF3C7;color:#92400E}
+.badge-info{background:#DBEAFE;color:#1E40AF}
+.badge-secondary{background:#E5E7EB;color:#374151}
+.badge-purple{background:#EDE9FE;color:#5B21B6}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);z-index:1000;justify-content:center;align-items:flex-start;padding:40px 16px;overflow-y:auto}
+.modal-overlay.active{display:flex}
+.modal{background:#fff;border-radius:16px;width:100%;max-width:600px;box-shadow:0 20px 60px rgba(0,0,0,.2);animation:slideIn .3s ease}
+@keyframes slideIn{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+.modal-header{padding:18px 24px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center}
+.modal-header h3{font-size:1.1rem}
+.modal-close{background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer;opacity:.8;transition:.2s}
+.modal-close:hover{opacity:1;transform:scale(1.1)}
+.modal-body{padding:24px}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:.82rem;font-weight:600;margin-bottom:6px;color:var(--text)}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 14px;border:1px solid #D1D5DB;border-radius:8px;font-size:.85rem;font-family:inherit;outline:none;transition:.2s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(45,127,143,.15)}
+.form-group textarea{resize:vertical;min-height:60px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.section-title{font-size:1.1rem;font-weight:700;margin-bottom:16px;color:var(--primary);display:flex;align-items:center;gap:8px}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.profil-card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:20px}
+.profil-header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;padding:24px;display:flex;align-items:center;gap:16px}
+.profil-avatar{width:60px;height:60px;background:rgba(255,255,255,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem}
+.profil-info{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:24px}
+.profil-field{font-size:.82rem}
+.profil-field span{display:block;color:var(--text-light);font-size:.75rem;margin-bottom:2px}
+.cal-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:16px 0}
+.cal-cell{padding:10px 6px;border-radius:8px;text-align:center;font-size:.72rem;font-weight:600}
+.cal-cell.paid{background:#D1FAE5;color:#065F46}
+.cal-cell.unpaid{background:#FEE2E2;color:#991B1B}
+.cal-cell.current{background:#FEF3C7;color:#92400E;border:2px solid var(--warning)}
+.cal-cell.future{background:#F3F4F6;color:#9CA3AF}
+.rappel-card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:12px;border-left:4px solid var(--warning)}
+.rappel-card.arrieres{border-left-color:var(--danger)}
+.rappel-msg{background:#F9FAFB;padding:12px;border-radius:8px;font-size:.82rem;margin:12px 0;line-height:1.5;font-style:italic}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text-light)}
+.empty-state i{font-size:3rem;margin-bottom:12px;opacity:.4}
+.empty-state p{font-size:.9rem}
+.report-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-top:16px}
+.report-card{background:#fff;padding:20px;border-radius:var(--radius);box-shadow:var(--shadow);text-align:center}
+.report-card .val{font-size:1.4rem;font-weight:800;margin:8px 0}
+.report-card .lbl{font-size:.78rem;color:var(--text-light)}
+.doc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.doc-card{background:#fff;padding:24px;border-radius:var(--radius);box-shadow:var(--shadow);text-align:center;cursor:pointer;transition:.3s}
+.doc-card:hover{transform:translateY(-3px);box-shadow:0 6px 16px rgba(0,0,0,.12)}
+.doc-card i{font-size:2.2rem;color:var(--primary);margin-bottom:12px}
+.doc-card h4{font-size:.9rem;margin-bottom:4px}
+.doc-card p{font-size:.75rem;color:var(--text-light)}
+.toast{position:fixed;bottom:20px;right:20px;padding:14px 24px;border-radius:10px;color:#fff;font-size:.85rem;font-weight:600;z-index:2000;animation:toastIn .3s ease;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.toast.success{background:var(--success)}
+.toast.error{background:var(--danger)}
+@keyframes toastIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+footer{text-align:center;padding:24px;background:#fff;margin-top:40px;border-top:1px solid #E5E7EB;font-size:.82rem;color:var(--text-light)}
+footer strong{color:var(--primary)}
+@media(max-width:768px){
+header{padding:14px 16px;gap:12px}
+.logo{width:50px;height:50px;font-size:9px}
+header h1{font-size:1rem}
+nav button{min-width:auto;padding:10px 6px;font-size:.7rem}
+main{padding:12px}
+.kpi-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+.form-row{grid-template-columns:1fr}
+.profil-info{grid-template-columns:1fr}
+.cal-grid{grid-template-columns:repeat(4,1fr)}
+.toolbar{flex-direction:column}
+.toolbar input{min-width:100%}
+}
+</style>
+</head>
+<body>
+
+<header>
+<div class="logo">SOPRIMEC</div>
+<div>
+<h1>SOPRIMEC - Gestion Immobilière Professionnelle</h1>
+<p>Agence immobilière - Dakar, Sénégal</p>
+</div>
+</header>
+
+<nav id="mainNav">
+<button class="active" onclick="showTab('dashboard')"><i class="fas fa-chart-line"></i> Dashboard</button>
+<button onclick="showTab('biens')"><i class="fas fa-home"></i> Biens</button>
+<button onclick="showTab('locataires')"><i class="fas fa-users"></i> Locataires</button>
+<button onclick="showTab('rappels')"><i class="fas fa-mobile-alt"></i> Rappels</button>
+<button onclick="showTab('paiements')"><i class="fas fa-money-bill"></i> Paiements</button>
+<button onclick="showTab('charges')"><i class="fas fa-chart-bar"></i> Charges</button>
+<button onclick="showTab('entretien')"><i class="fas fa-wrench"></i> Entretien</button>
+<button onclick="showTab('documents')"><i class="fas fa-file-alt"></i> Documents</button>
+<button onclick="showTab('rapports')"><i class="fas fa-chart-pie"></i> Rapports</button>
+</nav>
+
+<main>
+<!-- DASHBOARD -->
+<div id="tab-dashboard" class="tab-content active">
+<h2 class="section-title"><i class="fas fa-chart-line"></i> Tableau de Bord</h2>
+<div class="kpi-grid" id="dashKpis"></div>
+<h3 class="section-title" style="margin-top:24px"><i class="fas fa-exclamation-triangle"></i> Locataires en Arriérés</h3>
+<div class="table-wrap"><table id="dashArrieres"><thead><tr><th>Locataire</th><th>Bien</th><th>Arriérés</th><th>Mois impayés</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+</div>
+
+<!-- BIENS -->
+<div id="tab-biens" class="tab-content">
+<h2 class="section-title"><i class="fas fa-home"></i> Gestion des Biens</h2>
+<div class="toolbar">
+<input type="text" id="searchBiens" placeholder="Rechercher un bien..." oninput="renderBiens()">
+<select id="filterStatutBien" onchange="renderBiens()"><option value="">Tous les statuts</option><option value="Vacant">Vacant</option><option value="Loué">Loué</option><option value="En travaux">En travaux</option><option value="En vente">En vente</option></select>
+<button class="btn btn-primary" onclick="openModal('modalBien')"><i class="fas fa-plus"></i> Ajouter</button>
+</div>
+<div class="table-wrap"><table id="tableBiens"><thead><tr><th>Code</th><th>Type</th><th>Immeuble</th><th>Appartement</th><th>Adresse</th><th>Surface</th><th>Loyer</th><th>Statut</th><th>Actions</th></tr></thead><tbody></tbody></table></div>
+</div>
+
+<!-- LOCATAIRES -->
+<div id="tab-locataires" class="tab-content">
+<div id="listeLocataires">
+<h2 class="section-title"><i class="fas fa-users"></i> Gestion des Locataires</h2>
+<div class="toolbar">
+<input type="text" id="searchLoc" placeholder="Rechercher un locataire..." oninput="renderLocataires()">
+<button class="btn btn-primary" onclick="openModal('modalLocataire')"><i class="fas fa-plus"></i> Ajouter</button>
+</div>
+<div class="table-wrap"><table id="tableLocataires"><thead><tr><th>Code</th><th>Nom</th><th>Téléphone</th><th>Bien</th><th>Loyer</th><th>Arriérés</th><th>Statut</th><th>Actions</th></tr></thead><tbody></tbody></table></div>
+</div>
+<div id="profilLocataire" style="display:none"></div>
+</div>
+
+<!-- RAPPELS -->
+<div id="tab-rappels" class="tab-content">
+<h2 class="section-title"><i class="fas fa-mobile-alt"></i> Rappels WhatsApp</h2>
+<div class="kpi-grid" id="rappelKpis"></div>
+<div id="rappelsList"></div>
+</div>
+
+<!-- PAIEMENTS -->
+<div id="tab-paiements" class="tab-content">
+<h2 class="section-title"><i class="fas fa-money-bill"></i> Suivi des Paiements</h2>
+<div class="toolbar">
+<input type="text" id="searchPay" placeholder="Rechercher..." oninput="renderPaiements()">
+<button class="btn btn-primary" onclick="openModal('modalPaiement')"><i class="fas fa-plus"></i> Enregistrer</button>
+</div>
+<div class="table-wrap"><table id="tablePaiements"><thead><tr><th>N°</th><th>Locataire</th><th>Période</th><th>Montant</th><th>Date</th><th>Mode</th><th>Statut</th><th>Actions</th></tr></thead><tbody></tbody></table></div>
+</div>
+
+<!-- CHARGES -->
+<div id="tab-charges" class="tab-content">
+<h2 class="section-title"><i class="fas fa-chart-bar"></i> Gestion des Charges</h2>
+<div class="toolbar">
+<input type="text" id="searchCharges" placeholder="Rechercher..." oninput="renderCharges()">
+<button class="btn btn-primary" onclick="openModal('modalCharge')"><i class="fas fa-plus"></i> Ajouter</button>
+</div>
+<div class="table-wrap"><table id="tableCharges"><thead><tr><th>N°</th><th>Bien</th><th>Type</th><th>Date</th><th>Montant</th><th>Fournisseur</th><th>Actions</th></tr></thead><tbody></tbody></table></div>
+</div>
+
+<!-- ENTRETIEN -->
+<div id="tab-entretien" class="tab-content">
+<h2 class="section-title"><i class="fas fa-wrench"></i> Entretien & Réparations</h2>
+<div class="toolbar">
+<input type="text" id="searchEntretien" placeholder="Rechercher..." oninput="renderEntretiens()">
+<select id="filterUrgence" onchange="renderEntretiens()"><option value="">Toutes urgences</option><option value="Basse">Basse</option><option value="Moyenne">Moyenne</option><option value="Haute">Haute</option><option value="Urgente">Urgente</option></select>
+<button class="btn btn-primary" onclick="openModal('modalEntretien')"><i class="fas fa-plus"></i> Ajouter</button>
+</div>
+<div class="table-wrap"><table id="tableEntretiens"><thead><tr><th>N°</th><th>Bien</th><th>Type</th><th>Urgence</th><th>Date demande</th><th>Prestataire</th><th>Coût</th><th>Statut</th><th>Actions</th></tr></thead><tbody></tbody></table></div>
+</div>
+
+<!-- DOCUMENTS -->
+<div id="tab-documents" class="tab-content">
+<h2 class="section-title"><i class="fas fa-file-alt"></i> Documents & Synchronisation</h2>
+<div class="doc-grid">
+<div class="doc-card" onclick="exportJSON()"><i class="fas fa-download"></i><h4>Export JSON</h4><p>Sauvegarder toutes les données</p></div>
+<div class="doc-card" onclick="document.getElementById('importFile').click()"><i class="fas fa-upload"></i><h4>Import JSON</h4><p>Restaurer les données</p></div>
+<div class="doc-card" onclick="exportCSV()"><i class="fas fa-file-csv"></i><h4>Export CSV</h4><p>Pour Google Sheets</p></div>
+<div class="doc-card" onclick="genererQuittance()"><i class="fas fa-receipt"></i><h4>Quittance de Loyer</h4><p>Générer une quittance</p></div>
+<div class="doc-card" onclick="resetData()"><i class="fas fa-trash-alt"></i><h4>Réinitialiser</h4><p>Supprimer toutes les données</p></div>
+</div>
+<input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
+</div>
+
+<!-- RAPPORTS -->
+<div id="tab-rapports" class="tab-content">
+<h2 class="section-title"><i class="fas fa-chart-pie"></i> Rapports Financiers</h2>
+<div class="toolbar"><input type="month" id="reportMonth" onchange="genererRapport()"></div>
+<div class="report-grid" id="reportGrid"></div>
+</div>
+</main>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modalBien">
+<div class="modal">
+<div class="modal-header"><h3><i class="fas fa-home"></i> Nouveau Bien</h3><button class="modal-close" onclick="closeModal('modalBien')">&times;</button></div>
+<div class="modal-body">
+<div class="form-row"><div class="form-group"><label>Type</label><select id="bienType"><option>Appartement</option><option>Villa</option><option>Studio</option><option>Duplex</option><option>Bureau</option><option>Commerce</option></select></div><div class="form-group"><label>Immeuble</label><input id="bienImmeuble" placeholder="Ex: Résidence Océan"></div></div>
+<div class="form-group"><label>Nom appartement / N°</label><input id="bienAppartement" placeholder="Ex: Appt A3, Studio 2B"></div>
+<div class="form-group"><label>Adresse</label><input id="bienAdresse" placeholder="Adresse de l'immeuble"></div>
+<div class="form-row"><div class="form-group"><label>Ville</label><input id="bienVille" value="Dakar"></div><div class="form-group"><label>Surface (m²)</label><input type="number" id="bienSurface"></div></div>
+<div class="form-row"><div class="form-group"><label>Chambres</label><input type="number" id="bienChambres" min="0"></div><div class="form-group"><label>Loyer (FCFA)</label><input type="number" id="bienLoyer"></div></div>
+<div class="form-row"><div class="form-group"><label>Charges (FCFA)</label><input type="number" id="bienCharges" value="0"></div><div class="form-group"><label>Statut</label><select id="bienStatut"><option>Vacant</option><option>Loué</option><option>En travaux</option><option>En vente</option></select></div></div>
+<div class="form-group"><label>Propriétaire</label><input id="bienProprio" placeholder="Nom propriétaire"></div>
+<div class="form-group"><label>Notes</label><textarea id="bienNotes" rows="2"></textarea></div>
+<button class="btn btn-primary" onclick="ajouterBien()" style="width:100%"><i class="fas fa-save"></i> Enregistrer</button>
+</div></div></div>
+
+<div class="modal-overlay" id="modalLocataire">
+<div class="modal">
+<div class="modal-header"><h3><i class="fas fa-user-plus"></i> Nouveau Locataire</h3><button class="modal-close" onclick="closeModal('modalLocataire')">&times;</button></div>
+<div class="modal-body">
+<div class="form-row"><div class="form-group"><label>Nom complet</label><input id="locNom" placeholder="NOM Prénom"></div><div class="form-group"><label>Téléphone</label><input id="locTel" placeholder="77 123 45 67"></div></div>
+<div class="form-row"><div class="form-group"><label>Email</label><input id="locEmail" type="email"></div><div class="form-group"><label>CNI / Passeport</label><input id="locCNI"></div></div>
+<div class="form-row"><div class="form-group"><label>Profession</label><input id="locProfession"></div><div class="form-group"><label>Bien loué</label><select id="locBien" onchange="autoFillLoyer()"></select></div></div>
+<div class="form-row"><div class="form-group"><label>Date d'entrée</label><input type="date" id="locEntree"></div><div class="form-group"><label>Durée bail (mois)</label><input type="number" id="locBail" value="12"></div></div>
+<div class="form-row"><div class="form-group"><label>Loyer mensuel (FCFA)</label><input type="number" id="locLoyer" readonly></div><div class="form-group"><label>Caution versée (FCFA)</label><input type="number" id="locCaution"></div></div>
+<div class="form-group"><label><i class="fas fa-file-pdf"></i> Contrat de location (PDF)</label><input type="file" id="locContrat" accept=".pdf" style="padding:8px"></div>
+<button class="btn btn-primary" onclick="ajouterLocataire()" style="width:100%"><i class="fas fa-save"></i> Enregistrer</button>
+</div></div></div>
+
+<div class="modal-overlay" id="modalPaiement">
+<div class="modal">
+<div class="modal-header"><h3><i class="fas fa-money-bill"></i> Enregistrer Paiement</h3><button class="modal-close" onclick="closeModal('modalPaiement')">&times;</button></div>
+<div class="modal-body">
+<div class="form-row"><div class="form-group"><label>Locataire</label><select id="payLocataire" onchange="autoFillPayLoyer()"></select></div><div class="form-group"><label>Période</label><input type="month" id="payPeriode"></div></div>
+<div class="form-row"><div class="form-group"><label>Montant (FCFA)</label><input type="number" id="payMontant"></div><div class="form-group"><label>Date paiement</label><input type="date" id="payDate"></div></div>
+<div class="form-row"><div class="form-group"><label>Mode</label><select id="payMode"><option>Espèces</option><option>Chèque</option><option>Virement</option><option>Wave</option><option>Orange Money</option><option>Carte</option></select></div><div class="form-group"><label>Référence</label><input id="payRef" placeholder="Optionnel"></div></div>
+<div class="form-group"><label>Statut</label><select id="payStatut"><option>Payé</option><option>Partiel</option></select></div>
+<button class="btn btn-primary" onclick="ajouterPaiement()" style="width:100%"><i class="fas fa-save"></i> Enregistrer</button>
+</div></div></div>
+
+<div class="modal-overlay" id="modalCharge">
+<div class="modal">
+<div class="modal-header"><h3><i class="fas fa-chart-bar"></i> Nouvelle Charge</h3><button class="modal-close" onclick="closeModal('modalCharge')">&times;</button></div>
+<div class="modal-body">
+<div class="form-row"><div class="form-group"><label>Bien</label><select id="chargeBien"></select></div><div class="form-group"><label>Type</label><select id="chargeType"><option>Électricité/SENELEC</option><option>Eau/SDE</option><option>Gaz</option><option>Entretien</option><option>Travaux</option><option>Assurance</option><option>Taxe foncière</option><option>Syndic</option><option>Gardiennage</option><option>Internet</option><option>Divers</option></select></div></div>
+<div class="form-row"><div class="form-group"><label>Date</label><input type="date" id="chargeDate"></div><div class="form-group"><label>Montant (FCFA)</label><input type="number" id="chargeMontant"></div></div>
+<div class="form-row"><div class="form-group"><label>Fournisseur</label><input id="chargeFournisseur"></div><div class="form-group"><label>Statut</label><select id="chargeStatut"><option>Payé</option><option>En attente</option></select></div></div>
+<div class="form-group"><label>Description</label><textarea id="chargeDesc" rows="2"></textarea></div>
+<button class="btn btn-primary" onclick="ajouterCharge()" style="width:100%"><i class="fas fa-save"></i> Enregistrer</button>
+</div></div></div>
+
+<div class="modal-overlay" id="modalEntretien">
+<div class="modal">
+<div class="modal-header"><h3><i class="fas fa-wrench"></i> Nouvelle Intervention</h3><button class="modal-close" onclick="closeModal('modalEntretien')">&times;</button></div>
+<div class="modal-body">
+<div class="form-row"><div class="form-group"><label>Bien</label><select id="entBien"></select></div><div class="form-group"><label>Type</label><select id="entType"><option>Plomberie</option><option>Électricité</option><option>Peinture</option><option>Serrurerie</option><option>Climatisation</option><option>Toiture</option><option>Menuiserie</option><option>Maçonnerie</option><option>Carrelage</option><option>Vitrerie</option><option>Autre</option></select></div></div>
+<div class="form-row"><div class="form-group"><label>Urgence</label><select id="entUrgence"><option>Basse</option><option>Moyenne</option><option>Haute</option><option>Urgente</option></select></div><div class="form-group"><label>Date demande</label><input type="date" id="entDateDem"></div></div>
+<div class="form-row"><div class="form-group"><label>Date prévue</label><input type="date" id="entDatePrev"></div><div class="form-group"><label>Prestataire</label><input id="entPrestataire"></div></div>
+<div class="form-row"><div class="form-group"><label>Coût estimé (FCFA)</label><input type="number" id="entCout"></div><div class="form-group"><label>Statut</label><select id="entStatut"><option>Planifié</option><option>En cours</option><option>Terminé</option></select></div></div>
+<div class="form-group"><label>Description</label><textarea id="entDesc" rows="2"></textarea></div>
+<button class="btn btn-primary" onclick="ajouterEntretien()" style="width:100%"><i class="fas fa-save"></i> Enregistrer</button>
+</div></div></div>
+
+<div class="modal-overlay" id="modalQuittance">
+<div class="modal">
+<div class="modal-header"><h3><i class="fas fa-receipt"></i> Générer Quittance</h3><button class="modal-close" onclick="closeModal('modalQuittance')">&times;</button></div>
+<div class="modal-body">
+<div class="form-row"><div class="form-group"><label>Locataire</label><select id="quitLocataire"></select></div><div class="form-group"><label>Période</label><input type="month" id="quitPeriode"></div></div>
+<button class="btn btn-primary" onclick="printQuittance()" style="width:100%"><i class="fas fa-print"></i> Générer & Imprimer</button>
+</div></div></div>
+
+<footer>
+<strong>SOPRIMEC</strong> - Gestion Immobilière Professionnelle<br>
+<i class="fas fa-phone"></i> Contact: 78 893 27 87<br>
+&copy; 2025 SOPRIMEC. Tous droits réservés.
+</footer>
+
+<script>
+// ===== DATA MANAGEMENT (API-based) =====
+const cache = {};
+
+async function api(endpoint, options) {
+  const res = await fetch('/api/' + endpoint, options);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erreur serveur' }));
+    throw new Error(err.error || 'Erreur');
+  }
+  return res.json();
+}
+
+async function load(entity) {
+  if (cache[entity]) return cache[entity];
+  const data = await api(entity);
+  cache[entity] = data;
+  return data;
+}
+
+function invalidate(entity) {
+  if (entity) delete cache[entity];
+  else Object.keys(cache).forEach(k => delete cache[k]);
+}
+
+function fmt(n) { return Number(n || 0).toLocaleString('fr-FR') + ' FCFA' }
+function fmtDate(d) { if (!d) return '-'; const p = d.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d }
+function toast(msg, type = 'success') { const t = document.createElement('div'); t.className = 'toast ' + type; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3000) }
+function getMoisNom(m) { return ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'][m] }
+function getMoisCourt(m) { return ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][m] }
+
+// ===== TABS =====
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  const btns = document.querySelectorAll('nav button');
+  const tabs = ['dashboard','biens','locataires','rappels','paiements','charges','entretien','documents','rapports'];
+  const idx = tabs.indexOf(name);
+  if (idx >= 0 && btns[idx]) btns[idx].classList.add('active');
+  if (name === 'locataires') { document.getElementById('listeLocataires').style.display = 'block'; document.getElementById('profilLocataire').style.display = 'none' }
+  refreshAll();
+}
+
+// ===== MODALS =====
+function openModal(id) { document.getElementById(id).classList.add('active'); if (id === 'modalLocataire') fillBienSelect(); if (id === 'modalPaiement') fillPayLocSelect(); if (id === 'modalCharge' || id === 'modalEntretien') fillAllBienSelect(id); if (id === 'modalQuittance') fillQuitSelect() }
+function closeModal(id) { document.getElementById(id).classList.remove('active') }
+document.querySelectorAll('.modal-overlay').forEach(m => { m.addEventListener('click', e => { if (e.target === m) m.classList.remove('active') }) });
+
+// ===== BIENS =====
+async function ajouterBien() {
+  const b = { type: document.getElementById('bienType').value, immeuble: document.getElementById('bienImmeuble').value, appartement: document.getElementById('bienAppartement').value, adresse: document.getElementById('bienAdresse').value, ville: document.getElementById('bienVille').value, surface: document.getElementById('bienSurface').value, chambres: document.getElementById('bienChambres').value, loyer: parseInt(document.getElementById('bienLoyer').value) || 0, charges: parseInt(document.getElementById('bienCharges').value) || 0, statut: document.getElementById('bienStatut').value, proprietaire: document.getElementById('bienProprio').value, notes: document.getElementById('bienNotes').value };
+  if (!b.adresse || !b.loyer) { toast('Veuillez remplir adresse et loyer', 'error'); return }
+  try {
+    await api('biens', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
+    invalidate('biens'); closeModal('modalBien'); toast('Bien ajouté !');
+    ['bienImmeuble','bienAppartement','bienAdresse','bienSurface','bienChambres','bienLoyer','bienProprio','bienNotes'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('bienCharges').value = '0'; await renderBiens();
+  } catch (e) { toast(e.message, 'error') }
+}
+async function supprimerBien(code) {
+  if (!confirm('Supprimer ce bien ?')) return;
+  try {
+    await api('biens/' + code, { method: 'DELETE' });
+    invalidate('biens'); toast('Bien supprimé'); await renderBiens();
+  } catch (e) { toast(e.message, 'error') }
+}
+async function renderBiens() {
+  const biens = await load('biens');
+  const search = (document.getElementById('searchBiens').value || '').toLowerCase();
+  const filtre = document.getElementById('filterStatutBien').value;
+  const filtered = biens.filter(b => { const match = !search || b.code.toLowerCase().includes(search) || b.type.toLowerCase().includes(search) || (b.immeuble || '').toLowerCase().includes(search) || (b.appartement || '').toLowerCase().includes(search) || b.adresse.toLowerCase().includes(search); const fMatch = !filtre || b.statut === filtre; return match && fMatch });
+  const tbody = document.querySelector('#tableBiens tbody');
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#9CA3AF">Aucun bien trouvé</td></tr>'; return }
+  tbody.innerHTML = filtered.map(b => {
+    const badge = b.statut === 'Loué' ? 'badge-success' : b.statut === 'Vacant' ? 'badge-info' : b.statut === 'En travaux' ? 'badge-warning' : 'badge-purple';
+    return `<tr><td><strong>${b.code}</strong></td><td>${b.type}</td><td>${b.immeuble || '-'}</td><td>${b.appartement || '-'}</td><td>${b.adresse}</td><td>${b.surface} m²</td><td>${fmt(b.loyer)}</td><td><span class="badge ${badge}">${b.statut}</span></td><td><button class="btn btn-danger btn-sm" onclick="supprimerBien('${b.code}')"><i class="fas fa-trash"></i></button></td></tr>`
+  }).join('')
+}
+
+// ===== LOCATAIRES =====
+async function fillBienSelect() {
+  const biens = (await load('biens')).filter(b => b.statut === 'Vacant' || b.statut === 'Loué');
+  document.getElementById('locBien').innerHTML = '<option value="">-- Choisir --</option>' + biens.map(b => `<option value="${b.code}">${b.code} - ${b.immeuble ? b.immeuble + ' / ' : ''}${b.appartement || b.type} (${fmt(b.loyer)})</option>`).join('')
+}
+async function autoFillLoyer() {
+  const code = document.getElementById('locBien').value;
+  const biens = await load('biens');
+  const bien = biens.find(b => b.code === code);
+  document.getElementById('locLoyer').value = bien ? bien.loyer : ''
+}
+async function ajouterLocataire() {
+  const l = { nom: document.getElementById('locNom').value, telephone: document.getElementById('locTel').value, email: document.getElementById('locEmail').value, cni: document.getElementById('locCNI').value, profession: document.getElementById('locProfession').value, bien: document.getElementById('locBien').value, dateEntree: document.getElementById('locEntree').value, bail: document.getElementById('locBail').value, loyer: parseInt(document.getElementById('locLoyer').value) || 0, caution: parseInt(document.getElementById('locCaution').value) || 0 };
+  if (!l.nom || !l.telephone || !l.bien) { toast('Remplissez nom, téléphone et bien', 'error'); return }
+  try {
+    const result = await api('locataires', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(l) });
+    // Upload contract PDF if provided
+    const fileInput = document.getElementById('locContrat');
+    const file = fileInput.files[0];
+    if (file && file.type === 'application/pdf') {
+      const formData = new FormData();
+      formData.append('contrat', file);
+      await api('contrats/' + result.code, { method: 'POST', body: formData });
+    }
+    invalidate();
+    closeModal('modalLocataire'); toast('Locataire ajouté !');
+    ['locNom','locTel','locEmail','locCNI','locProfession','locLoyer','locCaution'].forEach(id => document.getElementById(id).value = '');
+    fileInput.value = '';
+    await renderLocataires();
+  } catch (e) { toast(e.message, 'error') }
+}
+async function supprimerLocataire(code) {
+  if (!confirm('Supprimer ce locataire ?')) return;
+  try {
+    await api('locataires/' + code, { method: 'DELETE' });
+    invalidate(); toast('Locataire supprimé'); await renderLocataires();
+  } catch (e) { toast(e.message, 'error') }
+}
+function getArrieres(loc) {
+  if (loc.statut !== 'Actif') return { moisImpayes: [], total: 0 };
+  const paiements = cache._paiements || [];
+  const now = new Date(); const entree = new Date(loc.dateEntree); const moisImpayes = [];
+  const d = new Date(entree.getFullYear(), entree.getMonth(), 1);
+  const finMois = new Date(now.getFullYear(), now.getMonth(), 1);
+  while (d <= finMois) {
+    const periode = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    const paye = paiements.some(p => p.locataire === loc.code && p.statut === 'Payé' && p.periode === periode);
+    if (!paye) moisImpayes.push({ periode, mois: getMoisNom(d.getMonth()) + ' ' + d.getFullYear() });
+    d.setMonth(d.getMonth() + 1);
+  }
+  return { moisImpayes, total: moisImpayes.length * loc.loyer }
+}
+async function renderLocataires() {
+  const locs = await load('locataires');
+  const biens = await load('biens');
+  cache._paiements = await load('paiements');
+  const search = (document.getElementById('searchLoc').value || '').toLowerCase();
+  const filtered = locs.filter(l => !search || l.nom.toLowerCase().includes(search) || l.code.toLowerCase().includes(search));
+  const tbody = document.querySelector('#tableLocataires tbody');
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#9CA3AF">Aucun locataire</td></tr>'; return }
+  tbody.innerHTML = filtered.map(l => {
+    const bien = biens.find(b => b.code === l.bien); const arr = getArrieres(l);
+    const statBadge = l.statut === 'Actif' ? 'badge-success' : 'badge-secondary';
+    const arrBadge = arr.total > 0 ? `<span class="badge badge-danger">${fmt(arr.total)}</span>` : '<span class="badge badge-success">À jour</span>';
+    const bienLabel = bien ? (bien.immeuble ? bien.immeuble + ' / ' + (bien.appartement || bien.type) : bien.type + ' ' + bien.adresse) : '-';
+    return `<tr><td><strong>${l.code}</strong></td><td>${l.nom}</td><td>${l.telephone}</td><td>${bienLabel}</td><td>${fmt(l.loyer)}</td><td>${arrBadge}</td><td><span class="badge ${statBadge}">${l.statut}</span></td><td><button class="btn btn-primary btn-sm" onclick="voirProfil('${l.code}')" title="Profil"><i class="fas fa-eye"></i></button> <button class="btn btn-danger btn-sm" onclick="supprimerLocataire('${l.code}')"><i class="fas fa-trash"></i></button></td></tr>`
+  }).join('')
+}
+
+// ===== PROFIL LOCATAIRE =====
+async function voirProfil(code) {
+  const locs = await load('locataires');
+  const loc = locs.find(l => l.code === code); if (!loc) return;
+  const biens = await load('biens');
+  const bien = biens.find(b => b.code === loc.bien);
+  cache._paiements = await load('paiements');
+  const paiements = cache._paiements.filter(p => p.locataire === code && p.statut === 'Payé');
+  const arr = getArrieres(loc);
+  document.getElementById('listeLocataires').style.display = 'none';
+  const div = document.getElementById('profilLocataire'); div.style.display = 'block';
+
+  // Calendar: 24 months
+  const now = new Date(); let calHTML = '';
+  const entree = new Date(loc.dateEntree);
+  for (let i = 23; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    if (d < new Date(entree.getFullYear(), entree.getMonth(), 1)) { calHTML += `<div class="cal-cell future">${getMoisCourt(d.getMonth())}<br>${d.getFullYear()}</div>`; continue }
+    const periode = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    const paye = paiements.some(p => p.periode === periode);
+    const isCurrent = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    const cls = isCurrent ? (paye ? 'paid' : 'current') : (paye ? 'paid' : 'unpaid');
+    calHTML += `<div class="cal-cell ${cls}">${getMoisCourt(d.getMonth())}<br>${d.getFullYear()}</div>`
+  }
+
+  const hasContrat = loc.contrat ? true : false;
+
+  div.innerHTML = `
+  <button class="btn btn-secondary" onclick="document.getElementById('listeLocataires').style.display='block';document.getElementById('profilLocataire').style.display='none'" style="margin-bottom:16px"><i class="fas fa-arrow-left"></i> Retour</button>
+  <div class="profil-card">
+    <div class="profil-header">
+      <div class="profil-avatar"><i class="fas fa-user"></i></div>
+      <div><h3>${loc.nom}</h3><p>${loc.code} - ${loc.statut}</p></div>
+    </div>
+    <div class="profil-info">
+      <div class="profil-field"><span>Téléphone</span>${loc.telephone}</div>
+      <div class="profil-field"><span>Email</span>${loc.email || '-'}</div>
+      <div class="profil-field"><span>CNI/Passeport</span>${loc.cni || '-'}</div>
+      <div class="profil-field"><span>Profession</span>${loc.profession || '-'}</div>
+      <div class="profil-field"><span>Bien loué</span>${bien ? (bien.immeuble ? bien.immeuble + ' / ' + (bien.appartement || bien.type) : bien.type) + ' - ' + bien.adresse : '-'}</div>
+      <div class="profil-field"><span>Date d'entrée</span>${fmtDate(loc.dateEntree)}</div>
+      <div class="profil-field"><span>Loyer mensuel</span>${fmt(loc.loyer)}</div>
+      <div class="profil-field"><span>Caution</span>${fmt(loc.caution)}</div>
+    </div>
+  </div>
+  <div class="profil-card" style="padding:24px">
+    <h3 class="section-title"><i class="fas fa-file-pdf"></i> Contrat de Location</h3>
+    ${hasContrat ? `
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span class="badge badge-success"><i class="fas fa-check"></i> ${loc.contrat || 'Contrat.pdf'}</span>
+        <button class="btn btn-primary btn-sm" onclick="voirContrat('${loc.code}')"><i class="fas fa-eye"></i> Voir</button>
+        <button class="btn btn-success btn-sm" onclick="telechargerContrat('${loc.code}','${loc.nom}')"><i class="fas fa-download"></i> Télécharger</button>
+        <button class="btn btn-danger btn-sm" onclick="supprimerContrat('${loc.code}')"><i class="fas fa-trash"></i> Supprimer</button>
+      </div>
+    ` : `
+      <p style="color:var(--text-light);margin-bottom:12px">Aucun contrat joint</p>
+      <input type="file" id="contratUpload_${loc.code}" accept=".pdf" style="display:none" onchange="uploaderContrat('${loc.code}',this)">
+      <button class="btn btn-primary btn-sm" onclick="document.getElementById('contratUpload_${loc.code}').click()"><i class="fas fa-upload"></i> Joindre un contrat PDF</button>
+    `}
+  </div>
+  <div class="profil-card" style="padding:24px">
+    <h3 class="section-title"><i class="fas fa-calendar-alt"></i> Historique Paiements (24 mois)</h3>
+    <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap"><span class="badge badge-success">Payé</span><span class="badge badge-danger">Impayé</span><span class="badge badge-warning">Mois en cours</span><span class="badge badge-secondary">Avant entrée</span></div>
+    <div class="cal-grid">${calHTML}</div>
+  </div>
+  ${arr.total > 0 ? `
+  <div class="profil-card" style="padding:24px">
+    <h3 class="section-title" style="color:var(--danger)"><i class="fas fa-exclamation-circle"></i> Arriérés: ${fmt(arr.total)} (${arr.moisImpayes.length} mois)</h3>
+    <div style="margin-bottom:12px">${arr.moisImpayes.map(m => `<span class="badge badge-danger" style="margin:3px">${m.mois}</span>`).join('')}</div>
+    <button class="btn btn-whatsapp" onclick="envoyerRappelArrieres('${loc.code}')"><i class="fab fa-whatsapp"></i> Envoyer Rappel WhatsApp</button>
+  </div>` : ''}`
+}
+
+// ===== PAIEMENTS =====
+async function fillPayLocSelect() {
+  const locs = (await load('locataires')).filter(l => l.statut === 'Actif');
+  document.getElementById('payLocataire').innerHTML = '<option value="">-- Choisir --</option>' + locs.map(l => `<option value="${l.code}">${l.code} - ${l.nom}</option>`).join('');
+  const now = new Date(); document.getElementById('payPeriode').value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  document.getElementById('payDate').value = now.toISOString().split('T')[0]
+}
+async function autoFillPayLoyer() {
+  const code = document.getElementById('payLocataire').value;
+  const locs = await load('locataires');
+  const loc = locs.find(l => l.code === code);
+  document.getElementById('payMontant').value = loc ? loc.loyer : ''
+}
+async function ajouterPaiement() {
+  const p = { locataire: document.getElementById('payLocataire').value, periode: document.getElementById('payPeriode').value, montant: parseInt(document.getElementById('payMontant').value) || 0, date: document.getElementById('payDate').value, mode: document.getElementById('payMode').value, reference: document.getElementById('payRef').value, statut: document.getElementById('payStatut').value };
+  if (!p.locataire || !p.periode || !p.montant) { toast('Remplissez tous les champs requis', 'error'); return }
+  try {
+    await api('paiements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
+    invalidate(); closeModal('modalPaiement'); toast('Paiement enregistré !'); await renderPaiements();
+  } catch (e) { toast(e.message, 'error') }
+}
+async function supprimerPaiement(num) {
+  if (!confirm('Supprimer ce paiement ?')) return;
+  try {
+    await api('paiements/' + num, { method: 'DELETE' });
+    invalidate(); toast('Paiement supprimé'); await renderPaiements();
+  } catch (e) { toast(e.message, 'error') }
+}
+async function renderPaiements() {
+  const pays = await load('paiements');
+  const locs = await load('locataires');
+  const search = (document.getElementById('searchPay').value || '').toLowerCase();
+  const filtered = pays.filter(p => { const loc = locs.find(l => l.code === p.locataire); const name = loc ? loc.nom : ''; return !search || p.numero.toLowerCase().includes(search) || name.toLowerCase().includes(search) || p.periode.includes(search) });
+  const tbody = document.querySelector('#tablePaiements tbody');
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#9CA3AF">Aucun paiement</td></tr>'; return }
+  tbody.innerHTML = filtered.map(p => {
+    const loc = locs.find(l => l.code === p.locataire);
+    const badge = p.statut === 'Payé' ? 'badge-success' : p.statut === 'Partiel' ? 'badge-warning' : 'badge-danger';
+    return `<tr><td><strong>${p.numero}</strong></td><td>${loc ? loc.nom : p.locataire}</td><td>${p.periode}</td><td>${fmt(p.montant)}</td><td>${fmtDate(p.date)}</td><td>${p.mode}</td><td><span class="badge ${badge}">${p.statut}</span></td><td><button class="btn btn-danger btn-sm" onclick="supprimerPaiement('${p.numero}')"><i class="fas fa-trash"></i></button></td></tr>`
+  }).join('')
+}
+
+// ===== CHARGES =====
+async function fillAllBienSelect(modalId) {
+  const biens = await load('biens');
+  const selId = modalId === 'modalCharge' ? 'chargeBien' : 'entBien';
+  document.getElementById(selId).innerHTML = '<option value="">-- Choisir --</option>' + biens.map(b => `<option value="${b.code}">${b.code} - ${b.immeuble ? b.immeuble + ' / ' + (b.appartement || b.type) : b.type + ' ' + b.adresse}</option>`).join('')
+}
+async function ajouterCharge() {
+  const c = { bien: document.getElementById('chargeBien').value, type: document.getElementById('chargeType').value, date: document.getElementById('chargeDate').value, montant: parseInt(document.getElementById('chargeMontant').value) || 0, fournisseur: document.getElementById('chargeFournisseur').value, description: document.getElementById('chargeDesc').value, statut: document.getElementById('chargeStatut').value };
+  if (!c.bien || !c.montant) { toast('Remplissez bien et montant', 'error'); return }
+  try {
+    await api('charges', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(c) });
+    invalidate('charges'); closeModal('modalCharge'); toast('Charge ajoutée !'); await renderCharges();
+  } catch (e) { toast(e.message, 'error') }
+}
+async function supprimerCharge(num) {
+  if (!confirm('Supprimer ?')) return;
+  try {
+    await api('charges/' + num, { method: 'DELETE' });
+    invalidate('charges'); toast('Supprimé'); await renderCharges();
+  } catch (e) { toast(e.message, 'error') }
+}
+async function renderCharges() {
+  const charges = await load('charges');
+  const search = (document.getElementById('searchCharges').value || '').toLowerCase();
+  const filtered = charges.filter(c => !search || c.numero.toLowerCase().includes(search) || c.type.toLowerCase().includes(search) || c.bien.toLowerCase().includes(search));
+  const tbody = document.querySelector('#tableCharges tbody');
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#9CA3AF">Aucune charge</td></tr>'; return }
+  tbody.innerHTML = filtered.map(c => `<tr><td><strong>${c.numero}</strong></td><td>${c.bien}</td><td>${c.type}</td><td>${fmtDate(c.date)}</td><td>${fmt(c.montant)}</td><td>${c.fournisseur || '-'}</td><td><button class="btn btn-danger btn-sm" onclick="supprimerCharge('${c.numero}')"><i class="fas fa-trash"></i></button></td></tr>`).join('')
+}
+
+// ===== ENTRETIEN =====
+async function ajouterEntretien() {
+  const e = { bien: document.getElementById('entBien').value, type: document.getElementById('entType').value, urgence: document.getElementById('entUrgence').value, dateDemande: document.getElementById('entDateDem').value, datePrevue: document.getElementById('entDatePrev').value, prestataire: document.getElementById('entPrestataire').value, cout: parseInt(document.getElementById('entCout').value) || 0, description: document.getElementById('entDesc').value, statut: document.getElementById('entStatut').value };
+  if (!e.bien) { toast('Choisissez un bien', 'error'); return }
+  try {
+    await api('entretiens', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(e) });
+    invalidate('entretiens'); closeModal('modalEntretien'); toast('Intervention ajoutée !'); await renderEntretiens();
+  } catch (e2) { toast(e2.message, 'error') }
+}
+async function supprimerEntretien(num) {
+  if (!confirm('Supprimer ?')) return;
+  try {
+    await api('entretiens/' + num, { method: 'DELETE' });
+    invalidate('entretiens'); toast('Supprimé'); await renderEntretiens();
+  } catch (e) { toast(e.message, 'error') }
+}
+async function renderEntretiens() {
+  const ents = await load('entretiens');
+  const search = (document.getElementById('searchEntretien').value || '').toLowerCase();
+  const filtre = document.getElementById('filterUrgence').value;
+  const filtered = ents.filter(e => { const m = !search || e.numero.toLowerCase().includes(search) || e.type.toLowerCase().includes(search); return m && (!filtre || e.urgence === filtre) });
+  const tbody = document.querySelector('#tableEntretiens tbody');
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#9CA3AF">Aucune intervention</td></tr>'; return }
+  const urgBadge = u => u === 'Basse' ? 'badge-info' : u === 'Moyenne' ? 'badge-warning' : u === 'Haute' ? 'badge-danger' : 'badge-danger';
+  const statBadge = s => s === 'Terminé' ? 'badge-success' : s === 'En cours' ? 'badge-warning' : 'badge-info';
+  tbody.innerHTML = filtered.map(e => `<tr><td><strong>${e.numero}</strong></td><td>${e.bien}</td><td>${e.type}</td><td><span class="badge ${urgBadge(e.urgence)}">${e.urgence}</span></td><td>${fmtDate(e.dateDemande)}</td><td>${e.prestataire || '-'}</td><td>${fmt(e.cout)}</td><td><span class="badge ${statBadge(e.statut)}">${e.statut}</span></td><td><button class="btn btn-danger btn-sm" onclick="supprimerEntretien('${e.numero}')"><i class="fas fa-trash"></i></button></td></tr>`).join('')
+}
+
+// ===== WHATSAPP =====
+function envoyerWhatsApp(telephone, message) {
+  let tel = telephone.replace(/\s/g, ''); if (!tel.startsWith('221')) tel = '221' + tel;
+  window.open(`https://wa.me/${tel}?text=${encodeURIComponent(message)}`, '_blank')
+}
+async function envoyerRappelArrieres(code) {
+  const locs = await load('locataires');
+  const loc = locs.find(l => l.code === code); if (!loc) return;
+  cache._paiements = await load('paiements');
+  const arr = getArrieres(loc); if (!arr.moisImpayes.length) return;
+  const moisListe = arr.moisImpayes.map(m => m.mois).join(', ');
+  const msg = `Bonjour Mr/Mme ${loc.nom}, l'agence SOPRIMEC vous rappelle que vous devez solder vos arriérés des mois de ${moisListe} avant le 05 du mois en cours. Merci de vous rapprocher de l'agence au 78 893 27 87.`;
+  envoyerWhatsApp(loc.telephone, msg)
+}
+
+// ===== CONTRATS PDF =====
+function voirContrat(code) {
+  window.open('/api/contrats/' + code, '_blank');
+}
+function telechargerContrat(code, nom) {
+  const a = document.createElement('a');
+  a.href = '/api/contrats/' + code + '?download=true';
+  a.download = 'Contrat_' + nom.replace(/\s/g, '_') + '.pdf';
+  a.click(); toast('Téléchargement lancé')
+}
+async function supprimerContrat(code) {
+  if (!confirm('Supprimer le contrat PDF ?')) return;
+  try {
+    await api('contrats/' + code, { method: 'DELETE' });
+    invalidate('locataires'); await voirProfil(code); toast('Contrat supprimé');
+  } catch (e) { toast(e.message, 'error') }
+}
+async function uploaderContrat(code, input) {
+  const file = input.files[0];
+  if (!file || file.type !== 'application/pdf') { toast('Veuillez sélectionner un PDF', 'error'); return }
+  try {
+    const formData = new FormData();
+    formData.append('contrat', file);
+    await api('contrats/' + code, { method: 'POST', body: formData });
+    invalidate('locataires'); await voirProfil(code); toast('Contrat ajouté !');
+  } catch (e) { toast(e.message, 'error') }
+}
+
+// ===== RAPPELS =====
+async function renderRappels() {
+  const rappels = await api('rappels');
+  const arrieres = rappels.filter(r => r.type === 'arrieres');
+  const courant = rappels.filter(r => r.type === 'courant');
+  document.getElementById('rappelKpis').innerHTML = `
+    <div class="kpi-card"><div class="icon">📱</div><div class="value">${rappels.length}</div><div class="label">Rappels aujourd'hui</div></div>
+    <div class="kpi-card"><div class="icon">🔴</div><div class="value danger">${arrieres.length}</div><div class="label">Avec arriérés</div></div>
+    <div class="kpi-card"><div class="icon">🟠</div><div class="value warning">${courant.length}</div><div class="label">Mois courant</div></div>`;
+  if (!rappels.length) { document.getElementById('rappelsList').innerHTML = '<div class="empty-state"><i class="fas fa-check-circle"></i><p>Aucun rappel à envoyer</p></div>'; return }
+  document.getElementById('rappelsList').innerHTML = rappels.map(r => `
+    <div class="rappel-card ${r.type}">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div><strong>${r.loc.nom}</strong> <span class="badge ${r.badge}">${r.label}</span></div>
+        <div style="font-size:.82rem;color:var(--text-light)">${r.loc.telephone}</div>
+      </div>
+      <div style="margin:8px 0"><strong style="color:var(--danger)">${fmt(r.montant)}</strong> - ${r.mois}</div>
+      <div class="rappel-msg">${r.message}</div>
+      <button class="btn btn-whatsapp" onclick="envoyerWhatsApp('${r.loc.telephone}',\`${r.message.replace(/`/g, "'")}\`)"><i class="fab fa-whatsapp"></i> Envoyer WhatsApp</button>
+    </div>`).join('')
+}
+
+// ===== DASHBOARD =====
+async function renderDashboard() {
+  const data = await api('dashboard');
+  document.getElementById('dashKpis').innerHTML = `
+    <div class="kpi-card"><div class="icon">🏠</div><div class="value">${data.totalBiens}</div><div class="label">Total biens</div></div>
+    <div class="kpi-card"><div class="icon">🔑</div><div class="value">${data.loues} (${data.taux}%)</div><div class="label">Biens loués</div></div>
+    <div class="kpi-card"><div class="icon">💰</div><div class="value">${fmt(data.loyersAttendus)}</div><div class="label">Loyers attendus/mois</div></div>
+    <div class="kpi-card"><div class="icon">👥</div><div class="value">${data.locatairesActifs}</div><div class="label">Locataires actifs</div></div>
+    <div class="kpi-card"><div class="icon">⚠️</div><div class="value danger">${fmt(data.totalArrieres)}</div><div class="label">Arriérés totaux</div></div>
+    <div class="kpi-card"><div class="icon">📱</div><div class="value warning">${data.rappelsCount}</div><div class="label">Rappels à envoyer</div></div>`;
+
+  const tbody = document.querySelector('#dashArrieres tbody');
+  if (!data.arList.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--success)"><i class="fas fa-check-circle"></i> Tous les locataires sont à jour</td></tr>'; return }
+  tbody.innerHTML = data.arList.map(a => `<tr><td>${a.loc.nom}</td><td>${a.bien ? (a.bien.immeuble ? a.bien.immeuble + ' / ' + (a.bien.appartement || a.bien.type) : a.bien.type + ' ' + a.bien.adresse) : '-'}</td><td><strong style="color:var(--danger)">${fmt(a.arr.total)}</strong></td><td>${a.arr.moisImpayes.map(m => `<span class="badge badge-danger" style="margin:2px;font-size:.68rem">${m.mois}</span>`).join('')}</td><td><button class="btn btn-whatsapp btn-sm" onclick="envoyerRappelArrieres('${a.loc.code}')"><i class="fab fa-whatsapp"></i></button></td></tr>`).join('')
+}
+
+// ===== RAPPORTS =====
+async function genererRapport() {
+  const periode = document.getElementById('reportMonth').value; if (!periode) return;
+  const data = await api('rapports/' + periode);
+  document.getElementById('reportGrid').innerHTML = `
+    <div class="report-card"><div class="lbl">Loyers attendus</div><div class="val" style="color:var(--primary)">${fmt(data.loyersAttendus)}</div></div>
+    <div class="report-card"><div class="lbl">Loyers encaissés</div><div class="val" style="color:var(--success)">${fmt(data.loyersEncaisses)}</div></div>
+    <div class="report-card"><div class="lbl">Loyers impayés</div><div class="val" style="color:var(--danger)">${fmt(data.impayes)}</div></div>
+    <div class="report-card"><div class="lbl">Taux recouvrement</div><div class="val" style="color:${data.taux >= 80 ? 'var(--success)' : 'var(--danger)'}">${data.taux}%</div></div>
+    <div class="report-card"><div class="lbl">Charges du mois</div><div class="val" style="color:var(--warning)">${fmt(data.totalCharges)}</div></div>
+    <div class="report-card"><div class="lbl">Résultat net</div><div class="val" style="color:${data.net >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmt(data.net)}</div></div>`
+}
+
+// ===== DOCUMENTS =====
+function exportJSON() {
+  window.location.href = '/api/export/json';
+  toast('Export réussi !');
+}
+async function importJSON(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async function(ev) {
+    try {
+      const data = JSON.parse(ev.target.result);
+      await api('import/json', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      invalidate(); toast('Import réussi !'); await refreshAll();
+    } catch (err) { toast('Fichier invalide', 'error') }
+  }; reader.readAsText(file);
+  e.target.value = '';
+}
+function exportCSV() {
+  window.location.href = '/api/export/csv';
+  toast('CSV exporté !');
+}
+async function resetData() {
+  if (!confirm('Réinitialiser toutes les données ?')) return;
+  try {
+    await api('reset', { method: 'POST' });
+    invalidate(); toast('Données réinitialisées'); await refreshAll();
+  } catch (e) { toast(e.message, 'error') }
+}
+function genererQuittance() { openModal('modalQuittance') }
+async function fillQuitSelect() {
+  const locs = (await load('locataires')).filter(l => l.statut === 'Actif');
+  document.getElementById('quitLocataire').innerHTML = locs.map(l => `<option value="${l.code}">${l.nom}</option>`).join('');
+  const now = new Date(); document.getElementById('quitPeriode').value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0')
+}
+async function printQuittance() {
+  const code = document.getElementById('quitLocataire').value;
+  const periode = document.getElementById('quitPeriode').value;
+  const locs = await load('locataires');
+  const loc = locs.find(l => l.code === code);
+  const biens = await load('biens');
+  const bien = biens.find(b => b.code === loc.bien);
+  if (!loc) return;
+  const [y, m] = periode.split('-'); const moisNom = getMoisNom(parseInt(m) - 1) + ' ' + y;
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Quittance</title><style>body{font-family:Arial;max-width:600px;margin:40px auto;padding:20px}h1{color:#2D7F8F;text-align:center;border-bottom:3px solid #2D7F8F;padding-bottom:10px}.info{margin:20px 0}.info td{padding:6px 12px}.footer{margin-top:40px;text-align:center;font-size:.85rem;color:#666}</style></head><body>
+  <h1>QUITTANCE DE LOYER</h1><p style="text-align:center;color:#666">SOPRIMEC - Gestion Immobilière</p>
+  <h3>Période : ${moisNom}</h3>
+  <table class="info"><tr><td><strong>Locataire :</strong></td><td>${loc.nom}</td></tr><tr><td><strong>Bien :</strong></td><td>${bien ? (bien.immeuble ? bien.immeuble + ' / ' + (bien.appartement || '') + ' - ' : bien.type + ' - ') + bien.adresse : ''}</td></tr><tr><td><strong>Loyer :</strong></td><td>${Number(loc.loyer).toLocaleString('fr-FR')} FCFA</td></tr><tr><td><strong>Charges :</strong></td><td>${bien ? Number(bien.charges).toLocaleString('fr-FR') : 0} FCFA</td></tr><tr><td><strong>Total :</strong></td><td><strong>${Number(loc.loyer + (bien ? bien.charges : 0)).toLocaleString('fr-FR')} FCFA</strong></td></tr></table>
+  <p style="margin-top:30px">Je soussigné, certifie avoir reçu de <strong>${loc.nom}</strong> la somme de <strong>${Number(loc.loyer).toLocaleString('fr-FR')} FCFA</strong> au titre du loyer du mois de <strong>${moisNom}</strong>.</p>
+  <p style="margin-top:30px">Fait à Dakar, le ${new Date().toLocaleDateString('fr-FR')}</p>
+  <p style="margin-top:40px;text-align:right"><strong>L'Agence SOPRIMEC</strong><br><br><br>_______________________</p>
+  <div class="footer">SOPRIMEC - Contact: 78 893 27 87</div></body></html>`);
+  w.document.close(); w.print(); closeModal('modalQuittance'); toast('Quittance générée !')
+}
+
+// ===== REFRESH =====
+async function refreshAll() {
+  invalidate();
+  await Promise.all([renderDashboard(), renderBiens(), renderLocataires(), renderPaiements(), renderCharges(), renderEntretiens(), renderRappels()]);
+}
+
+// ===== START =====
+(async () => {
+  await refreshAll();
+  const now = new Date();
+  document.getElementById('reportMonth').value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  await genererRapport();
+})();
+</script>
+</body>
+</html>
