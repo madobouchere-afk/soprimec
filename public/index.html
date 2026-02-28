@@ -282,6 +282,7 @@ main{padding:12px}
 <div class="form-row"><div class="form-group"><label>Profession</label><input id="locProfession"></div><div class="form-group"><label>Bien loué</label><select id="locBien" onchange="autoFillLoyer()"></select></div></div>
 <div class="form-row"><div class="form-group"><label>Date d'entrée</label><input type="date" id="locEntree"></div><div class="form-group"><label>Durée bail (mois)</label><input type="number" id="locBail" value="12"></div></div>
 <div class="form-row"><div class="form-group"><label>Loyer mensuel (FCFA)</label><input type="number" id="locLoyer" readonly></div><div class="form-group"><label>Caution versée (FCFA)</label><input type="number" id="locCaution"></div></div>
+<div class="form-row"><div class="form-group"><label>Dernier mois payé</label><input type="month" id="locDernierMoisPaye"><small style="color:var(--text-light)">Les arriérés seront calculés à partir du mois suivant</small></div></div>
 <div class="form-group"><label><i class="fas fa-file-pdf"></i> Contrat de location (PDF)</label><input type="file" id="locContrat" accept=".pdf" style="padding:8px"></div>
 <button class="btn btn-primary" onclick="ajouterLocataire()" style="width:100%"><i class="fas fa-save"></i> Enregistrer</button>
 </div></div></div>
@@ -440,9 +441,23 @@ async function ajouterLocataire() {
       formData.append('contrat', file);
       await api('contrats/' + result.code, { method: 'POST', body: formData });
     }
+    // Create payment records from dateEntree up to dernierMoisPaye
+    const dernierMoisPaye = document.getElementById('locDernierMoisPaye').value;
+    if (dernierMoisPaye && l.dateEntree) {
+      const entree = new Date(l.dateEntree);
+      const [dy, dm] = dernierMoisPaye.split('-').map(Number);
+      const dernierDate = new Date(dy, dm - 1, 1);
+      const d = new Date(entree.getFullYear(), entree.getMonth(), 1);
+      while (d <= dernierDate) {
+        const periode = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        await api('paiements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locataire: result.code, periode, montant: l.loyer, date: l.dateEntree, mode: 'Espèces', statut: 'Payé' }) });
+        d.setMonth(d.getMonth() + 1);
+      }
+    }
     invalidate();
     closeModal('modalLocataire'); toast('Locataire ajouté !');
     ['locNom','locTel','locEmail','locCNI','locProfession','locLoyer','locCaution'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('locDernierMoisPaye').value = '';
     fileInput.value = '';
     await renderLocataires();
   } catch (e) { toast(e.message, 'error') }
