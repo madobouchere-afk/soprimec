@@ -291,10 +291,11 @@ main{padding:12px}
 <div class="modal">
 <div class="modal-header"><h3><i class="fas fa-money-bill"></i> Enregistrer Paiement</h3><button class="modal-close" onclick="closeModal('modalPaiement')">&times;</button></div>
 <div class="modal-body">
-<div class="form-row"><div class="form-group"><label>Locataire</label><select id="payLocataire" onchange="autoFillPayInfo()"></select></div><div class="form-group"><label>Période (auto: prochain mois dû)</label><input type="month" id="payPeriode"></div></div>
+<div class="form-row"><div class="form-group"><label>Locataire</label><select id="payLocataire" onchange="autoFillPayInfo()"></select></div><div class="form-group"><label>Montant (FCFA)</label><input type="number" id="payMontant" oninput="previewPayAllocation()"></div></div>
 <div id="payInfoBox" style="background:#F0FDFA;border:1px solid #2D7F8F;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.82rem;display:none"></div>
-<div class="form-row"><div class="form-group"><label>Montant (FCFA)</label><input type="number" id="payMontant"></div><div class="form-group"><label>Date paiement</label><input type="date" id="payDate"></div></div>
-<div class="form-row"><div class="form-group"><label>Mode</label><select id="payMode"><option>Espèces</option><option>Chèque</option><option>Virement</option><option>Wave</option><option>Orange Money</option><option>Carte</option></select></div><div class="form-group"><label>Référence</label><input id="payRef" placeholder="Optionnel"></div></div>
+<div id="payPreviewBox" style="background:#FEF3C7;border:1px solid #D97706;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.82rem;display:none"></div>
+<div class="form-row"><div class="form-group"><label>Date paiement</label><input type="date" id="payDate"></div><div class="form-group"><label>Mode</label><select id="payMode"><option>Espèces</option><option>Chèque</option><option>Virement</option><option>Wave</option><option>Orange Money</option><option>Carte</option></select></div></div>
+<div class="form-row"><div class="form-group"><label>Référence</label><input id="payRef" placeholder="Optionnel"></div></div>
 <button class="btn btn-primary" onclick="ajouterPaiement()" style="width:100%"><i class="fas fa-save"></i> Enregistrer</button>
 </div></div></div>
 
@@ -471,32 +472,37 @@ async function supprimerLocataire(code) {
 }
 function getArrieres(loc) {
   if (loc.statut !== 'Actif') return { moisImpayes: [], total: 0, dernierMoisPaye: null };
-  const paiements = cache._paiements || [];
+  const paiements = (cache._paiements || []).filter(p => p.locataire === loc.code && p.statut === 'Payé');
+  // Sum payments per period
+  const paidByPeriode = {};
+  paiements.forEach(p => { paidByPeriode[p.periode] = (paidByPeriode[p.periode] || 0) + p.montant; });
   const now = new Date(); const jour = now.getDate();
-  const entree = new Date(loc.dateEntree); const moisImpayes = [];
+  const entree = new Date(loc.dateEntree);
+  const loyer = loc.loyer;
+  const moisImpayes = [];
   const d = new Date(entree.getFullYear(), entree.getMonth(), 1);
-  // Current month only counts as due if past the 10th
   const finMois = jour >= 10
     ? new Date(now.getFullYear(), now.getMonth(), 1)
     : new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-  const paidSet = new Set(paiements.filter(p => p.locataire === loc.code && p.statut === 'Payé').map(p => p.periode));
-
-  // Find last paid month
   let dernierMoisPaye = null;
-  const check = new Date(entree.getFullYear(), entree.getMonth(), 1);
-  while (check <= finMois) {
-    const p = check.getFullYear() + '-' + String(check.getMonth() + 1).padStart(2, '0');
-    if (paidSet.has(p)) dernierMoisPaye = { periode: p, mois: getMoisNom(check.getMonth()) + ' ' + check.getFullYear() };
-    check.setMonth(check.getMonth() + 1);
-  }
+  let totalDu = 0;
 
   while (d <= finMois) {
     const periode = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-    if (!paidSet.has(periode)) moisImpayes.push({ periode, mois: getMoisNom(d.getMonth()) + ' ' + d.getFullYear() });
+    const paid = paidByPeriode[periode] || 0;
+    if (paid >= loyer) {
+      if (moisImpayes.length === 0) {
+        dernierMoisPaye = { periode, mois: getMoisNom(d.getMonth()) + ' ' + d.getFullYear() };
+      }
+    } else {
+      const reste = loyer - paid;
+      moisImpayes.push({ periode, mois: getMoisNom(d.getMonth()) + ' ' + d.getFullYear(), reste, avance: paid });
+      totalDu += reste;
+    }
     d.setMonth(d.getMonth() + 1);
   }
-  return { moisImpayes, total: moisImpayes.length * loc.loyer, dernierMoisPaye }
+  return { moisImpayes, total: totalDu, dernierMoisPaye };
 }
 async function renderLocataires() {
   const locs = await load('locataires');
@@ -546,7 +552,10 @@ function renderMonthPicker(pickerId, locCode, year) {
   const loc = locs.find(l => l.code === locCode);
   const entree = loc ? new Date(loc.dateEntree) : new Date(2020, 0, 1);
   const paiements = (cache._paiements || []).filter(p => p.locataire === locCode && p.statut === 'Payé');
-  const paidSet = new Set(paiements.map(p => p.periode));
+  // Sum payments per period for partial payment support
+  const paidByPeriode = {};
+  paiements.forEach(p => { paidByPeriode[p.periode] = (paidByPeriode[p.periode] || 0) + p.montant; });
+  const loyer = loc ? loc.loyer : 0;
 
   let cells = '';
   for (let m = 0; m < 12; m++) {
@@ -554,17 +563,21 @@ function renderMonthPicker(pickerId, locCode, year) {
     const d = new Date(year, m, 1);
     const entreeMonth = new Date(entree.getFullYear(), entree.getMonth(), 1);
     const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const paid = paidByPeriode[periode] || 0;
 
     if (d < entreeMonth) {
       cells += `<div class="mp-cell before">${moisCourts[m]}</div>`;
     } else if (d > currentMonth) {
       cells += `<div class="mp-cell future">${moisCourts[m]}</div>`;
-    } else if (paidSet.has(periode)) {
-      cells += `<div class="mp-cell paid" title="Payé">${moisCourts[m]}</div>`;
+    } else if (paid >= loyer) {
+      cells += `<div class="mp-cell paid" title="Payé (${fmt(paid)})">${moisCourts[m]}</div>`;
+    } else if (paid > 0) {
+      // Partially paid
+      cells += `<div class="mp-cell partial" title="Partiel: ${fmt(paid)}/${fmt(loyer)} — Reste: ${fmt(loyer - paid)}" style="background:linear-gradient(135deg,#D1FAE5 50%,#FEF3C7 50%);color:#92400E;cursor:default">${moisCourts[m]}</div>`;
     } else {
       const isCurrent = d.getTime() === currentMonth.getTime();
       const cls = isCurrent ? 'current' : 'unpaid';
-      cells += `<div class="mp-cell ${cls}" onclick="payFromPicker('${locCode}','${periode}','${pickerId}',${year})" title="Cliquer pour marquer payé">${moisCourts[m]}</div>`;
+      cells += `<div class="mp-cell ${cls}" title="Impayé">${moisCourts[m]}</div>`;
     }
   }
 
@@ -575,28 +588,12 @@ function renderMonthPicker(pickerId, locCode, year) {
       <button onclick="renderMonthPicker('${pickerId}','${locCode}',${year + 1})"><i class="fas fa-chevron-right"></i></button>
     </div>
     <div class="mp-grid">${cells}</div>
+    <div style="text-align:center;padding:4px 0;font-size:.7rem;color:#6B7280">
+      <span style="color:#059669">■</span> Payé
+      <span style="margin-left:6px;color:#92400E">■</span> Partiel
+      <span style="margin-left:6px;color:#DC2626">■</span> Impayé
+    </div>
   `;
-}
-
-async function payFromPicker(locCode, periode, pickerId, year) {
-  const loc = (cache.locataires || []).find(l => l.code === locCode);
-  if (!loc) return;
-  const moisComplets = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-  const [py, pm] = periode.split('-').map(Number);
-  const moisLabel = moisComplets[pm - 1] + ' ' + py;
-  if (!confirm('Enregistrer le paiement de ' + loc.nom + ' pour ' + moisLabel + ' (' + fmt(loc.loyer) + ') ?')) return;
-  try {
-    await api('paiements', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ locataire: locCode, periode, montant: loc.loyer, date: new Date().toISOString().split('T')[0], mode: 'Espèces', statut: 'Payé' })
-    });
-    invalidate();
-    toast('Paiement enregistré pour ' + moisLabel);
-    cache._paiements = await load('paiements');
-    renderMonthPicker(pickerId, locCode, year);
-    await renderLocataires();
-  } catch(e) { toast('Erreur: ' + e.message) }
 }
 
 // Close picker on outside click
@@ -620,17 +617,24 @@ async function voirProfil(code) {
   document.getElementById('listeLocataires').style.display = 'none';
   const div = document.getElementById('profilLocataire'); div.style.display = 'block';
 
-  // Calendar: 24 months
+  // Calendar: 24 months — with partial payment support
   const now = new Date(); let calHTML = '';
   const entree = new Date(loc.dateEntree);
+  const paidByPeriode = {};
+  paiements.forEach(p => { paidByPeriode[p.periode] = (paidByPeriode[p.periode] || 0) + p.montant; });
   for (let i = 23; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     if (d < new Date(entree.getFullYear(), entree.getMonth(), 1)) { calHTML += `<div class="cal-cell future">${getMoisCourt(d.getMonth())}<br>${d.getFullYear()}</div>`; continue }
     const periode = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-    const paye = paiements.some(p => p.periode === periode);
+    const paid = paidByPeriode[periode] || 0;
     const isCurrent = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-    const cls = isCurrent ? (paye ? 'paid' : 'current') : (paye ? 'paid' : 'unpaid');
-    calHTML += `<div class="cal-cell ${cls}">${getMoisCourt(d.getMonth())}<br>${d.getFullYear()}</div>`
+    let cls;
+    if (paid >= loc.loyer) cls = 'paid';
+    else if (paid > 0) cls = 'partial';
+    else if (isCurrent) cls = 'current';
+    else cls = 'unpaid';
+    const title = paid > 0 && paid < loc.loyer ? `title="${fmt(paid)}/${fmt(loc.loyer)}"` : '';
+    calHTML += `<div class="cal-cell ${cls}" ${title} ${cls === 'partial' ? 'style="background:linear-gradient(135deg,#D1FAE5 50%,#FEF3C7 50%);color:#92400E"' : ''}>${getMoisCourt(d.getMonth())}<br>${d.getFullYear()}</div>`
   }
 
   const hasContrat = loc.contrat ? true : false;
@@ -676,7 +680,7 @@ async function voirProfil(code) {
   ${arr.total > 0 ? `
   <div class="profil-card" style="padding:24px">
     <h3 class="section-title" style="color:var(--danger)"><i class="fas fa-exclamation-circle"></i> Arriérés: ${fmt(arr.total)} (${arr.moisImpayes.length} mois)</h3>
-    <div style="margin-bottom:12px">${arr.moisImpayes.map(m => `<span class="badge badge-danger" style="margin:3px">${m.mois}</span>`).join('')}</div>
+    <div style="margin-bottom:12px">${arr.moisImpayes.map(m => `<span class="badge ${m.avance > 0 ? 'badge-warning' : 'badge-danger'}" style="margin:3px">${m.mois}${m.avance > 0 ? ' (avance: ' + fmt(m.avance) + ')' : ''}</span>`).join('')}</div>
     <button class="btn btn-whatsapp" onclick="envoyerRappelArrieres('${loc.code}')"><i class="fab fa-whatsapp"></i> Envoyer Rappel WhatsApp</button>
   </div>` : ''}`
 }
@@ -693,29 +697,69 @@ async function autoFillPayInfo() {
   const locs = await load('locataires');
   const loc = locs.find(l => l.code === code);
   const infoBox = document.getElementById('payInfoBox');
+  const previewBox = document.getElementById('payPreviewBox');
+  previewBox.style.display = 'none';
   if (!loc) { document.getElementById('payMontant').value = ''; infoBox.style.display = 'none'; return; }
   cache._paiements = await load('paiements');
   const arr = getArrieres(loc);
   document.getElementById('payMontant').value = loc.loyer;
-  // Auto-set period to next unpaid month
   if (arr.moisImpayes.length > 0) {
-    document.getElementById('payPeriode').value = arr.moisImpayes[0].periode;
     const dernierInfo = arr.dernierMoisPaye ? arr.dernierMoisPaye.mois : 'Aucun';
-    infoBox.innerHTML = `<strong>${loc.nom}</strong> — Dernier mois payé: <span class="badge badge-info">${dernierInfo}</span> | Arriérés: <span class="badge badge-danger">${fmt(arr.total)} (${arr.moisImpayes.length} mois)</span><br><small>Prochain mois à couvrir: <strong>${arr.moisImpayes[0].mois}</strong></small>`;
+    infoBox.innerHTML = `<strong>${loc.nom}</strong> — Loyer: <span class="badge badge-info">${fmt(loc.loyer)}/mois</span> | Dernier mois payé: <span class="badge badge-info">${dernierInfo}</span> | Arriérés: <span class="badge badge-danger">${fmt(arr.total)} (${arr.moisImpayes.length} mois)</span><br><small>Prochain mois à couvrir: <strong>${arr.moisImpayes[0].mois}</strong>${arr.moisImpayes[0].avance > 0 ? ' (avance: ' + fmt(arr.moisImpayes[0].avance) + ', reste: ' + fmt(arr.moisImpayes[0].reste) + ')' : ''}</small>`;
     infoBox.style.display = 'block';
   } else {
-    const now = new Date();
-    document.getElementById('payPeriode').value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-    infoBox.innerHTML = `<strong>${loc.nom}</strong> — <span class="badge badge-success">À jour</span>`;
+    infoBox.innerHTML = `<strong>${loc.nom}</strong> — <span class="badge badge-success">À jour</span> | Loyer: ${fmt(loc.loyer)}/mois`;
     infoBox.style.display = 'block';
   }
+  previewPayAllocation();
+}
+function previewPayAllocation() {
+  const code = document.getElementById('payLocataire').value;
+  const previewBox = document.getElementById('payPreviewBox');
+  if (!code) { previewBox.style.display = 'none'; return; }
+  const locs = cache.locataires || [];
+  const loc = locs.find(l => l.code === code);
+  if (!loc) { previewBox.style.display = 'none'; return; }
+  const montant = parseInt(document.getElementById('payMontant').value) || 0;
+  if (montant <= 0) { previewBox.style.display = 'none'; return; }
+  const arr = getArrieres(loc);
+  let remaining = montant;
+  const allocation = [];
+  for (const month of arr.moisImpayes) {
+    if (remaining <= 0) break;
+    const toApply = Math.min(remaining, month.reste);
+    allocation.push({ mois: month.mois, montant: toApply, full: toApply >= month.reste });
+    remaining -= toApply;
+  }
+  if (remaining > 0) {
+    // Advance on next month after arrears
+    const moisComplets = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    let nextLabel = 'mois suivant';
+    if (arr.moisImpayes.length > 0) {
+      const last = arr.moisImpayes[arr.moisImpayes.length - 1].periode;
+      const [y, m] = last.split('-').map(Number);
+      const nd = new Date(y, m, 1);
+      nextLabel = moisComplets[nd.getMonth()] + ' ' + nd.getFullYear();
+    } else {
+      const now = new Date();
+      nextLabel = moisComplets[now.getMonth()] + ' ' + now.getFullYear();
+    }
+    allocation.push({ mois: nextLabel, montant: remaining, full: remaining >= loc.loyer });
+  }
+  const lines = allocation.map(a => {
+    const icon = a.full ? '<i class="fas fa-check-circle" style="color:#059669"></i>' : '<i class="fas fa-minus-circle" style="color:#D97706"></i>';
+    return `${icon} <strong>${a.mois}</strong>: ${fmt(a.montant)}${!a.full ? ' (partiel)' : ''}`;
+  }).join('<br>');
+  const nbFull = allocation.filter(a => a.full).length;
+  previewBox.innerHTML = `<strong>Répartition du paiement de ${fmt(montant)}:</strong><br>${lines}<br><small>${nbFull} mois complet(s) couvert(s)</small>`;
+  previewBox.style.display = 'block';
 }
 async function ajouterPaiement() {
-  const p = { locataire: document.getElementById('payLocataire').value, periode: document.getElementById('payPeriode').value, montant: parseInt(document.getElementById('payMontant').value) || 0, date: document.getElementById('payDate').value, mode: document.getElementById('payMode').value, reference: document.getElementById('payRef').value, statut: 'Payé' };
-  if (!p.locataire || !p.periode || !p.montant) { toast('Remplissez tous les champs requis', 'error'); return }
+  const p = { locataire: document.getElementById('payLocataire').value, montant: parseInt(document.getElementById('payMontant').value) || 0, date: document.getElementById('payDate').value, mode: document.getElementById('payMode').value, reference: document.getElementById('payRef').value };
+  if (!p.locataire || !p.montant) { toast('Remplissez tous les champs requis', 'error'); return }
   try {
-    await api('paiements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
-    invalidate(); closeModal('modalPaiement'); toast('Paiement enregistré !');
+    const data = await api('paiements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
+    invalidate(); closeModal('modalPaiement'); toast(`Paiement réparti sur ${data.count || 1} mois !`);
     await refreshAll();
   } catch (e) { toast(e.message, 'error') }
 }
@@ -754,7 +798,10 @@ async function renderPaiements() {
   const monthPays = pays.filter(p => p.periode === selectedPeriode && p.statut === 'Payé');
   const totalEncaisse = monthPays.reduce((s, p) => s + p.montant, 0);
   const totalAttendu = activeLocs.reduce((s, l) => s + l.loyer, 0);
-  const nbPayes = new Set(monthPays.map(p => p.locataire)).size;
+  // Count fully paid locataires (sum of payments >= loyer)
+  const paidByLoc = {};
+  monthPays.forEach(p => { paidByLoc[p.locataire] = (paidByLoc[p.locataire] || 0) + p.montant; });
+  const nbPayes = activeLocs.filter(l => (paidByLoc[l.code] || 0) >= l.loyer).length;
   document.getElementById('payKpis').innerHTML = `
     <div class="kpi-card"><div class="icon" style="color:var(--success)"><i class="fas fa-check-circle"></i></div><div class="value">${nbPayes}/${activeLocs.length}</div><div class="label">Locataires payés</div></div>
     <div class="kpi-card"><div class="icon" style="color:var(--primary)"><i class="fas fa-money-bill"></i></div><div class="value">${fmt(totalEncaisse)}</div><div class="label">Encaissé</div></div>
@@ -769,15 +816,23 @@ async function renderPaiements() {
     const arr = getArrieres(l);
     const dernierLabel = arr.dernierMoisPaye ? arr.dernierMoisPaye.mois : 'Aucun';
     const dernierClass = arr.dernierMoisPaye ? 'badge-info' : 'badge-secondary';
-    // Payment for selected month
-    const monthPay = pays.find(p => p.locataire === l.code && p.periode === selectedPeriode && p.statut === 'Payé');
+    // Payment(s) for selected month — may be multiple partial payments
+    const monthPays = pays.filter(p => p.locataire === l.code && p.periode === selectedPeriode && p.statut === 'Payé');
+    const totalPaid = monthPays.reduce((s, p) => s + p.montant, 0);
     let statutBadge, montantCell, dateCell, modeCell, actionCell;
-    if (monthPay) {
+    if (totalPaid >= l.loyer) {
       statutBadge = '<span class="badge badge-success">Payé</span>';
-      montantCell = fmt(monthPay.montant);
-      dateCell = fmtDate(monthPay.date);
-      modeCell = monthPay.mode;
-      actionCell = `<button class="btn btn-danger btn-sm" onclick="supprimerPaiement('${monthPay.numero}')" title="Annuler"><i class="fas fa-times"></i></button>`;
+      montantCell = fmt(totalPaid);
+      dateCell = monthPays.length > 0 ? fmtDate(monthPays[monthPays.length - 1].date) : '-';
+      modeCell = monthPays.length > 0 ? monthPays[monthPays.length - 1].mode : '-';
+      const delBtns = monthPays.map(p => `<button class="btn btn-danger btn-sm" onclick="supprimerPaiement('${p.numero}')" title="Annuler ${fmt(p.montant)}"><i class="fas fa-times"></i></button>`).join(' ');
+      actionCell = delBtns;
+    } else if (totalPaid > 0) {
+      statutBadge = `<span class="badge badge-warning">Partiel</span><br><small>${fmt(totalPaid)}/${fmt(l.loyer)}</small>`;
+      montantCell = fmt(totalPaid);
+      dateCell = fmtDate(monthPays[monthPays.length - 1].date);
+      modeCell = monthPays[monthPays.length - 1].mode;
+      actionCell = `<button class="btn btn-success btn-sm" onclick="quickPay('${l.code}','${selectedPeriode}',${l.loyer})" title="Compléter"><i class="fas fa-plus"></i> Compléter</button>`;
     } else {
       statutBadge = '<span class="badge badge-danger">Impayé</span>';
       montantCell = '-';
@@ -789,13 +844,11 @@ async function renderPaiements() {
   }).join('');
 }
 async function quickPay(locCode, periode, montant) {
-  const moisComplets = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-  const [y, m] = periode.split('-').map(Number);
   const locs = await load('locataires');
   const loc = locs.find(l => l.code === locCode);
-  if (!confirm(`Enregistrer le paiement de ${loc.nom} pour ${moisComplets[m-1]} ${y} (${fmt(montant)}) ?`)) return;
+  if (!confirm(`Enregistrer le paiement de ${loc.nom} — ${fmt(montant)} (1 mois de loyer, appliqué au prochain mois dû) ?`)) return;
   try {
-    await api('paiements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locataire: locCode, periode, montant, date: new Date().toISOString().split('T')[0], mode: 'Espèces', statut: 'Payé' }) });
+    const data = await api('paiements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locataire: locCode, montant, date: new Date().toISOString().split('T')[0], mode: 'Espèces' }) });
     invalidate(); toast('Paiement enregistré !'); await refreshAll();
   } catch(e) { toast(e.message, 'error') }
 }
@@ -889,7 +942,10 @@ async function envoyerRappelArrieres(code) {
   const loc = locs.find(l => l.code === code); if (!loc) return;
   cache._paiements = await load('paiements');
   const arr = getArrieres(loc); if (!arr.moisImpayes.length) return;
-  const moisListe = arr.moisImpayes.map(m => m.mois).join(', ');
+  const moisListe = arr.moisImpayes.map(m => {
+    if (m.avance > 0) return `${m.mois} (reste ${m.reste.toLocaleString('fr-FR')} FCFA)`;
+    return m.mois;
+  }).join(', ');
   const dernierInfo = arr.dernierMoisPaye ? `Dernier mois payé: ${arr.dernierMoisPaye.mois}. ` : '';
   const fmtMontant = arr.total.toLocaleString('fr-FR');
   const msg = `Bonjour Mr/Mme ${loc.nom}, l'agence SOPRIMEC vous rappelle que vous avez des arriérés de ${fmtMontant} FCFA pour les mois de ${moisListe}. ${dernierInfo}Merci de régulariser votre situation auprès de l'agence au 78 893 27 87.`;

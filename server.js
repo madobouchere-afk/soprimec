@@ -114,11 +114,14 @@ function getMoisNom(m) {
 // Payments are applied sequentially from lease start
 function getArrieres(loc) {
   if (loc.statut !== 'Actif') return { moisImpayes: [], total: 0, dernierMoisPaye: null };
-  const paiements = db.prepare("SELECT periode FROM paiements WHERE locataire = ? AND statut = 'Payé'").all(loc.code);
-  const paidPeriodes = new Set(paiements.map(p => p.periode));
+  const paiements = db.prepare("SELECT periode, montant FROM paiements WHERE locataire = ? AND statut = 'Payé'").all(loc.code);
+  // Sum payments per period (multiple partial payments possible)
+  const paidByPeriode = {};
+  paiements.forEach(p => { paidByPeriode[p.periode] = (paidByPeriode[p.periode] || 0) + p.montant; });
   const now = new Date();
   const jour = now.getDate();
   const entree = new Date(loc.dateEntree);
+  const loyer = loc.loyer;
   const moisImpayes = [];
 
   const d = new Date(entree.getFullYear(), entree.getMonth(), 1);
@@ -127,25 +130,27 @@ function getArrieres(loc) {
     ? new Date(now.getFullYear(), now.getMonth(), 1)
     : new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-  // Find last paid month (sequential from start)
+  // Find last consecutively fully paid month from lease start
   let dernierMoisPaye = null;
-  const check = new Date(entree.getFullYear(), entree.getMonth(), 1);
-  while (check <= finMois) {
-    const p = check.getFullYear() + '-' + String(check.getMonth() + 1).padStart(2, '0');
-    if (paidPeriodes.has(p)) {
-      dernierMoisPaye = { periode: p, mois: getMoisNom(check.getMonth()) + ' ' + check.getFullYear() };
-    }
-    check.setMonth(check.getMonth() + 1);
-  }
+  let totalDu = 0;
 
   while (d <= finMois) {
     const periode = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-    if (!paidPeriodes.has(periode)) {
-      moisImpayes.push({ periode, mois: getMoisNom(d.getMonth()) + ' ' + d.getFullYear() });
+    const paid = paidByPeriode[periode] || 0;
+    if (paid >= loyer) {
+      // Fully paid — update dernier mois payé only if consecutive
+      if (moisImpayes.length === 0) {
+        dernierMoisPaye = { periode, mois: getMoisNom(d.getMonth()) + ' ' + d.getFullYear() };
+      }
+    } else {
+      // Unpaid or partially paid
+      const reste = loyer - paid;
+      moisImpayes.push({ periode, mois: getMoisNom(d.getMonth()) + ' ' + d.getFullYear(), reste, avance: paid });
+      totalDu += reste;
     }
     d.setMonth(d.getMonth() + 1);
   }
-  return { moisImpayes, total: moisImpayes.length * loc.loyer, dernierMoisPaye };
+  return { moisImpayes, total: totalDu, dernierMoisPaye };
 }
 
 // ==================== BIENS ====================
@@ -208,10 +213,62 @@ app.get('/api/paiements', (req, res) => {
 
 app.post('/api/paiements', (req, res) => {
   const p = req.body;
-  const numero = nextCode('paiements', 'P', 'numero');
-  db.prepare('INSERT INTO paiements (numero,locataire,periode,montant,date,mode,reference,statut) VALUES (?,?,?,?,?,?,?,?)')
-    .run(numero, p.locataire, p.periode, p.montant || 0, p.date || '', p.mode || 'Espèces', p.reference || '', p.statut || 'Payé');
-  res.json({ numero });
+  const loc = db.prepare('SELECT * FROM locataires WHERE code = ?').get(p.locataire);
+  if (!loc) return res.status(400).json({ error: 'Locataire introuvable' });
+
+  const montantTotal = parseInt(p.montant) || 0;
+  if (montantTotal <= 0) return res.status(400).json({ error: 'Montant invalide' });
+
+  // Get arriérés to find unpaid months in order
+  const arr = getArrieres(loc);
+  const unpaidMonths = arr.moisImpayes; // [{periode, mois, reste, avance}]
+
+  const created = [];
+  let remaining = montantTotal;
+  const insertPay = db.prepare('INSERT INTO paiements (numero,locataire,periode,montant,date,mode,reference,statut) VALUES (?,?,?,?,?,?,?,?)');
+
+  const tx = db.transaction(() => {
+    // Allocate payment sequentially to unpaid months
+    for (const month of unpaidMonths) {
+      if (remaining <= 0) break;
+      const toApply = Math.min(remaining, month.reste);
+      const numero = nextCode('paiements', 'P', 'numero');
+      insertPay.run(numero, p.locataire, month.periode, toApply, p.date || '', p.mode || 'Espèces', p.reference || '', 'Payé');
+      created.push({ numero, periode: month.periode, montant: toApply });
+      remaining -= toApply;
+    }
+
+    // If there's still money left after covering all arrears, apply to next future month
+    if (remaining > 0) {
+      // Find the next month after the last covered period
+      let nextMonth;
+      if (unpaidMonths.length > 0) {
+        const lastCovered = unpaidMonths[unpaidMonths.length - 1].periode;
+        const [y, m] = lastCovered.split('-').map(Number);
+        const nd = new Date(y, m, 1); // m is already 1-based, so this gives next month
+        nextMonth = nd.getFullYear() + '-' + String(nd.getMonth() + 1).padStart(2, '0');
+      } else {
+        // All caught up - advance payment for next month
+        const now = new Date();
+        const jour = now.getDate();
+        const currentPeriode = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+        // Check if current month is already paid
+        const currentPaid = db.prepare("SELECT SUM(montant) as total FROM paiements WHERE locataire = ? AND periode = ? AND statut = 'Payé'").get(p.locataire, currentPeriode);
+        if ((currentPaid.total || 0) < loc.loyer) {
+          nextMonth = currentPeriode;
+        } else {
+          const nd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          nextMonth = nd.getFullYear() + '-' + String(nd.getMonth() + 1).padStart(2, '0');
+        }
+      }
+      const numero = nextCode('paiements', 'P', 'numero');
+      insertPay.run(numero, p.locataire, nextMonth, remaining, p.date || '', p.mode || 'Espèces', p.reference || '', 'Payé');
+      created.push({ numero, periode: nextMonth, montant: remaining });
+    }
+  });
+
+  tx();
+  res.json({ created, count: created.length });
 });
 
 app.delete('/api/paiements/:numero', (req, res) => {
@@ -331,7 +388,11 @@ function getRappels(locs, biens) {
   locs.forEach(loc => {
     const arr = getArrieres(loc);
     if (arr.moisImpayes.length > 0) {
-      const moisListe = arr.moisImpayes.map(m => m.mois).join(', ');
+      // Build month list with partial info
+      const moisListe = arr.moisImpayes.map(m => {
+        if (m.avance > 0) return `${m.mois} (reste ${m.reste.toLocaleString('fr-FR')} FCFA)`;
+        return m.mois;
+      }).join(', ');
       const fmtMontant = arr.total.toLocaleString('fr-FR');
       const dernierInfo = arr.dernierMoisPaye ? `Dernier mois payé: ${arr.dernierMoisPaye.mois}. ` : '';
       rappels.push({
