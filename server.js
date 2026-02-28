@@ -110,15 +110,34 @@ function getMoisNom(m) {
 }
 
 // ===== HELPER: arrieres for a locataire =====
+// Rule: current month only counts as due if we're past the 10th
+// Payments are applied sequentially from lease start
 function getArrieres(loc) {
-  if (loc.statut !== 'Actif') return { moisImpayes: [], total: 0 };
+  if (loc.statut !== 'Actif') return { moisImpayes: [], total: 0, dernierMoisPaye: null };
   const paiements = db.prepare("SELECT periode FROM paiements WHERE locataire = ? AND statut = 'Payé'").all(loc.code);
   const paidPeriodes = new Set(paiements.map(p => p.periode));
   const now = new Date();
+  const jour = now.getDate();
   const entree = new Date(loc.dateEntree);
   const moisImpayes = [];
+
   const d = new Date(entree.getFullYear(), entree.getMonth(), 1);
-  const finMois = new Date(now.getFullYear(), now.getMonth(), 1);
+  // Current month only counts if past the 10th
+  const finMois = jour >= 10
+    ? new Date(now.getFullYear(), now.getMonth(), 1)
+    : new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+  // Find last paid month (sequential from start)
+  let dernierMoisPaye = null;
+  const check = new Date(entree.getFullYear(), entree.getMonth(), 1);
+  while (check <= finMois) {
+    const p = check.getFullYear() + '-' + String(check.getMonth() + 1).padStart(2, '0');
+    if (paidPeriodes.has(p)) {
+      dernierMoisPaye = { periode: p, mois: getMoisNom(check.getMonth()) + ' ' + check.getFullYear() };
+    }
+    check.setMonth(check.getMonth() + 1);
+  }
+
   while (d <= finMois) {
     const periode = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
     if (!paidPeriodes.has(periode)) {
@@ -126,7 +145,7 @@ function getArrieres(loc) {
     }
     d.setMonth(d.getMonth() + 1);
   }
-  return { moisImpayes, total: moisImpayes.length * loc.loyer };
+  return { moisImpayes, total: moisImpayes.length * loc.loyer, dernierMoisPaye };
 }
 
 // ==================== BIENS ====================
@@ -208,8 +227,8 @@ app.get('/api/charges', (req, res) => {
 app.post('/api/charges', (req, res) => {
   const c = req.body;
   const numero = nextCode('charges', 'C', 'numero');
-  db.prepare('INSERT INTO charges (numero,bien,type,date,montant,fournisseur,description,statut) VALUES (?,?,?,?,?,?,?,?)')
-    .run(numero, c.bien, c.type, c.date || '', c.montant || 0, c.fournisseur || '', c.description || '', c.statut || 'Payé');
+  db.prepare('INSERT INTO charges (numero,bien,type,date,montant,fournisseur,reference,description,statut) VALUES (?,?,?,?,?,?,?,?,?)')
+    .run(numero, c.bien, c.type, c.date || '', c.montant || 0, c.fournisseur || '', c.reference || '', c.description || '', c.statut || 'Payé');
   res.json({ numero });
 });
 
@@ -307,38 +326,19 @@ function getRappels(locs, biens) {
   if (!locs) locs = db.prepare("SELECT * FROM locataires WHERE statut = 'Actif'").all();
   if (!biens) biens = db.prepare('SELECT * FROM biens').all();
   const now = new Date();
-  const jour = now.getDate();
-  const moisActuel = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
   const rappels = [];
 
   locs.forEach(loc => {
     const arr = getArrieres(loc);
-    const paiements = db.prepare("SELECT periode FROM paiements WHERE locataire = ? AND statut = 'Payé'").all(loc.code);
-    const moisActuelPaye = paiements.some(p => p.periode === moisActuel);
-
-    // Type 2: arriérés
     if (arr.moisImpayes.length > 0) {
-      const arrieresSansMoisActuel = arr.moisImpayes.filter(m => m.periode !== moisActuel);
-      if (arrieresSansMoisActuel.length > 0) {
-        const moisListe = arrieresSansMoisActuel.map(m => m.mois).join(', ');
-        rappels.push({
-          loc, type: 'arrieres', badge: 'badge-danger', label: 'Arriérés',
-          montant: arrieresSansMoisActuel.length * loc.loyer, mois: moisListe,
-          message: `Bonjour Mr/Mme ${loc.nom}, l'agence SOPRIMEC vous rappelle que vous devez solder vos arriérés des mois de ${moisListe} avant le 05 du mois en cours. Merci de vous rapprocher de l'agence au 78 893 27 87.`
-        });
-      }
-    }
-    // Type 1: current month unpaid after 15th
-    if (!moisActuelPaye && jour >= 15) {
-      const arrieresSansMoisActuel = arr.moisImpayes.filter(m => m.periode !== moisActuel);
-      if (arrieresSansMoisActuel.length === 0) {
-        const moisNom = getMoisNom(now.getMonth()) + ' ' + now.getFullYear();
-        rappels.push({
-          loc, type: 'courant', badge: 'badge-warning', label: 'Mois courant',
-          montant: loc.loyer, mois: moisNom,
-          message: `Bonjour Mr/Mme ${loc.nom}, l'agence SOPRIMEC vous rappelle que le loyer du mois de ${moisNom} est à régler avant le 05. Merci de vous rapprocher de l'agence au 78 893 27 87.`
-        });
-      }
+      const moisListe = arr.moisImpayes.map(m => m.mois).join(', ');
+      const fmtMontant = arr.total.toLocaleString('fr-FR');
+      const dernierInfo = arr.dernierMoisPaye ? `Dernier mois payé: ${arr.dernierMoisPaye.mois}. ` : '';
+      rappels.push({
+        loc, type: 'arrieres', badge: 'badge-danger', label: `${arr.moisImpayes.length} mois impayé(s)`,
+        montant: arr.total, mois: moisListe,
+        message: `Bonjour Mr/Mme ${loc.nom}, l'agence SOPRIMEC vous rappelle que vous avez des arriérés de ${fmtMontant} FCFA pour les mois de ${moisListe}. ${dernierInfo}Merci de régulariser votre situation auprès de l'agence au 78 893 27 87.`
+      });
     }
   });
   return rappels;
@@ -401,8 +401,8 @@ app.post('/api/import/json', express.json({ limit: '50mb' }), (req, res) => {
     }
     if (data.charges) {
       db.prepare('DELETE FROM charges').run();
-      const ins = db.prepare('INSERT INTO charges (numero,bien,type,date,montant,fournisseur,description,statut) VALUES (?,?,?,?,?,?,?,?)');
-      data.charges.forEach(c => ins.run(c.numero, c.bien, c.type, c.date || '', c.montant || 0, c.fournisseur || '', c.description || '', c.statut || ''));
+      const ins = db.prepare('INSERT INTO charges (numero,bien,type,date,montant,fournisseur,reference,description,statut) VALUES (?,?,?,?,?,?,?,?,?)');
+      data.charges.forEach(c => ins.run(c.numero, c.bien, c.type, c.date || '', c.montant || 0, c.fournisseur || '', c.reference || '', c.description || '', c.statut || ''));
     }
     if (data.entretiens) {
       db.prepare('DELETE FROM entretiens').run();

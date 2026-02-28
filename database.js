@@ -61,6 +61,7 @@ db.exec(`
     date TEXT,
     montant INTEGER NOT NULL DEFAULT 0,
     fournisseur TEXT DEFAULT '',
+    reference TEXT DEFAULT '',
     description TEXT DEFAULT '',
     statut TEXT DEFAULT 'Paye'
   );
@@ -87,6 +88,14 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 `);
+
+// Migration: add reference column to charges if missing
+try {
+  db.prepare("SELECT reference FROM charges LIMIT 1").get();
+} catch(e) {
+  db.exec("ALTER TABLE charges ADD COLUMN reference TEXT DEFAULT ''");
+  console.log('Migration: added reference column to charges');
+}
 
 // Seed demo data if empty
 function seedDemoData() {

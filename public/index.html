@@ -82,6 +82,24 @@ tr:hover td{background:#F9FAFB}
 .cal-cell.unpaid{background:#FEE2E2;color:#991B1B}
 .cal-cell.current{background:#FEF3C7;color:#92400E;border:2px solid var(--warning)}
 .cal-cell.future{background:#F3F4F6;color:#9CA3AF}
+.month-picker-wrap{position:relative;display:inline-block}
+.month-picker-btn{cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.month-picker-btn:hover{opacity:.8}
+.month-picker-popup{display:none;position:absolute;top:100%;left:50%;transform:translateX(-50%);z-index:200;background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.18);padding:12px;width:260px;margin-top:6px}
+.month-picker-popup.show{display:block}
+.month-picker-popup::before{content:'';position:absolute;top:-6px;left:50%;transform:translateX(-50%) rotate(45deg);width:12px;height:12px;background:#fff;box-shadow:-2px -2px 4px rgba(0,0,0,.06)}
+.mp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.mp-header button{background:none;border:1px solid #D1D5DB;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:.8rem;color:var(--text);transition:.2s;display:flex;align-items:center;justify-content:center}
+.mp-header button:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+.mp-header span{font-weight:700;font-size:.9rem;color:var(--text)}
+.mp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.mp-cell{padding:6px 2px;border-radius:6px;text-align:center;font-size:.7rem;font-weight:600;cursor:pointer;transition:.15s;border:1px solid transparent}
+.mp-cell:hover{transform:scale(1.05);box-shadow:0 2px 6px rgba(0,0,0,.1)}
+.mp-cell.paid{background:#D1FAE5;color:#065F46}
+.mp-cell.unpaid{background:#FEE2E2;color:#991B1B}
+.mp-cell.current{background:#FEF3C7;color:#92400E;border-color:var(--warning)}
+.mp-cell.future{background:#F3F4F6;color:#9CA3AF;cursor:default}
+.mp-cell.before{background:#F3F4F6;color:#9CA3AF;cursor:default}
 .rappel-card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:12px;border-left:4px solid var(--warning)}
 .rappel-card.arrieres{border-left-color:var(--danger)}
 .rappel-msg{background:#F9FAFB;padding:12px;border-radius:8px;font-size:.82rem;margin:12px 0;line-height:1.5;font-style:italic}
@@ -173,7 +191,7 @@ main{padding:12px}
 <input type="text" id="searchLoc" placeholder="Rechercher un locataire..." oninput="renderLocataires()">
 <button class="btn btn-primary" onclick="openModal('modalLocataire')"><i class="fas fa-plus"></i> Ajouter</button>
 </div>
-<div class="table-wrap"><table id="tableLocataires"><thead><tr><th>Code</th><th>Nom</th><th>Téléphone</th><th>Bien</th><th>Loyer</th><th>Arriérés</th><th>Statut</th><th>Actions</th></tr></thead><tbody></tbody></table></div>
+<div class="table-wrap"><table id="tableLocataires"><thead><tr><th>Code</th><th>Nom</th><th>Téléphone</th><th>Bien</th><th>Loyer</th><th>Dernier mois payé</th><th>Arriérés</th><th>Statut</th><th>Actions</th></tr></thead><tbody></tbody></table></div>
 </div>
 <div id="profilLocataire" style="display:none"></div>
 </div>
@@ -189,10 +207,12 @@ main{padding:12px}
 <div id="tab-paiements" class="tab-content">
 <h2 class="section-title"><i class="fas fa-money-bill"></i> Suivi des Paiements</h2>
 <div class="toolbar">
-<input type="text" id="searchPay" placeholder="Rechercher..." oninput="renderPaiements()">
+<select id="payFilterMonth" onchange="renderPaiements()" style="min-width:160px"></select>
+<input type="text" id="searchPay" placeholder="Rechercher un locataire..." oninput="renderPaiements()">
 <button class="btn btn-primary" onclick="openModal('modalPaiement')"><i class="fas fa-plus"></i> Enregistrer</button>
 </div>
-<div class="table-wrap"><table id="tablePaiements"><thead><tr><th>N°</th><th>Locataire</th><th>Période</th><th>Montant</th><th>Date</th><th>Mode</th><th>Statut</th><th>Actions</th></tr></thead><tbody></tbody></table></div>
+<div class="kpi-grid" id="payKpis"></div>
+<div class="table-wrap"><table id="tablePaiements"><thead><tr><th>Locataire</th><th>Bien</th><th>Loyer</th><th>Dernier mois payé</th><th>Statut du mois</th><th>Montant payé</th><th>Date</th><th>Mode</th><th>Actions</th></tr></thead><tbody></tbody></table></div>
 </div>
 
 <!-- CHARGES -->
@@ -202,7 +222,7 @@ main{padding:12px}
 <input type="text" id="searchCharges" placeholder="Rechercher..." oninput="renderCharges()">
 <button class="btn btn-primary" onclick="openModal('modalCharge')"><i class="fas fa-plus"></i> Ajouter</button>
 </div>
-<div class="table-wrap"><table id="tableCharges"><thead><tr><th>N°</th><th>Bien</th><th>Type</th><th>Date</th><th>Montant</th><th>Fournisseur</th><th>Actions</th></tr></thead><tbody></tbody></table></div>
+<div class="table-wrap"><table id="tableCharges"><thead><tr><th>N°</th><th>Bien / Immeuble</th><th>Type</th><th>Référence</th><th>Date</th><th>Montant</th><th>Fournisseur</th><th>Actions</th></tr></thead><tbody></tbody></table></div>
 </div>
 
 <!-- ENTRETIEN -->
@@ -270,10 +290,10 @@ main{padding:12px}
 <div class="modal">
 <div class="modal-header"><h3><i class="fas fa-money-bill"></i> Enregistrer Paiement</h3><button class="modal-close" onclick="closeModal('modalPaiement')">&times;</button></div>
 <div class="modal-body">
-<div class="form-row"><div class="form-group"><label>Locataire</label><select id="payLocataire" onchange="autoFillPayLoyer()"></select></div><div class="form-group"><label>Période</label><input type="month" id="payPeriode"></div></div>
+<div class="form-row"><div class="form-group"><label>Locataire</label><select id="payLocataire" onchange="autoFillPayInfo()"></select></div><div class="form-group"><label>Période (auto: prochain mois dû)</label><input type="month" id="payPeriode"></div></div>
+<div id="payInfoBox" style="background:#F0FDFA;border:1px solid #2D7F8F;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.82rem;display:none"></div>
 <div class="form-row"><div class="form-group"><label>Montant (FCFA)</label><input type="number" id="payMontant"></div><div class="form-group"><label>Date paiement</label><input type="date" id="payDate"></div></div>
 <div class="form-row"><div class="form-group"><label>Mode</label><select id="payMode"><option>Espèces</option><option>Chèque</option><option>Virement</option><option>Wave</option><option>Orange Money</option><option>Carte</option></select></div><div class="form-group"><label>Référence</label><input id="payRef" placeholder="Optionnel"></div></div>
-<div class="form-group"><label>Statut</label><select id="payStatut"><option>Payé</option><option>Partiel</option></select></div>
 <button class="btn btn-primary" onclick="ajouterPaiement()" style="width:100%"><i class="fas fa-save"></i> Enregistrer</button>
 </div></div></div>
 
@@ -281,9 +301,11 @@ main{padding:12px}
 <div class="modal">
 <div class="modal-header"><h3><i class="fas fa-chart-bar"></i> Nouvelle Charge</h3><button class="modal-close" onclick="closeModal('modalCharge')">&times;</button></div>
 <div class="modal-body">
-<div class="form-row"><div class="form-group"><label>Bien</label><select id="chargeBien"></select></div><div class="form-group"><label>Type</label><select id="chargeType"><option>Électricité/SENELEC</option><option>Eau/SDE</option><option>Gaz</option><option>Entretien</option><option>Travaux</option><option>Assurance</option><option>Taxe foncière</option><option>Syndic</option><option>Gardiennage</option><option>Internet</option><option>Divers</option></select></div></div>
-<div class="form-row"><div class="form-group"><label>Date</label><input type="date" id="chargeDate"></div><div class="form-group"><label>Montant (FCFA)</label><input type="number" id="chargeMontant"></div></div>
-<div class="form-row"><div class="form-group"><label>Fournisseur</label><input id="chargeFournisseur"></div><div class="form-group"><label>Statut</label><select id="chargeStatut"><option>Payé</option><option>En attente</option></select></div></div>
+<div class="form-row"><div class="form-group"><label>Type</label><select id="chargeType" onchange="onChargeTypeChange()"><option>Électricité/SENELEC</option><option>Eau/SDE</option><option>Gaz</option><option>Entretien</option><option>Travaux</option><option>Assurance</option><option>Taxe foncière</option><option>Syndic</option><option>Gardiennage</option><option>Internet</option><option>Divers</option></select></div><div class="form-group" id="chargeBienGroup"><label>Bien</label><select id="chargeBien"></select></div></div>
+<div id="chargeImmeubleGroup" style="display:none"><div class="form-group"><label>Immeuble</label><select id="chargeImmeuble"></select></div></div>
+<div class="form-row"><div class="form-group"><label>Référence compteur</label><input id="chargeReference" placeholder="Ex: N° compteur"></div><div class="form-group"><label>Date</label><input type="date" id="chargeDate"></div></div>
+<div class="form-row"><div class="form-group"><label>Montant (FCFA)</label><input type="number" id="chargeMontant"></div><div class="form-group"><label>Fournisseur</label><input id="chargeFournisseur"></div></div>
+<div class="form-row"><div class="form-group"><label>Statut</label><select id="chargeStatut"><option>Payé</option><option>En attente</option></select></div></div>
 <div class="form-group"><label>Description</label><textarea id="chargeDesc" rows="2"></textarea></div>
 <button class="btn btn-primary" onclick="ajouterCharge()" style="width:100%"><i class="fas fa-save"></i> Enregistrer</button>
 </div></div></div>
@@ -433,18 +455,33 @@ async function supprimerLocataire(code) {
   } catch (e) { toast(e.message, 'error') }
 }
 function getArrieres(loc) {
-  if (loc.statut !== 'Actif') return { moisImpayes: [], total: 0 };
+  if (loc.statut !== 'Actif') return { moisImpayes: [], total: 0, dernierMoisPaye: null };
   const paiements = cache._paiements || [];
-  const now = new Date(); const entree = new Date(loc.dateEntree); const moisImpayes = [];
+  const now = new Date(); const jour = now.getDate();
+  const entree = new Date(loc.dateEntree); const moisImpayes = [];
   const d = new Date(entree.getFullYear(), entree.getMonth(), 1);
-  const finMois = new Date(now.getFullYear(), now.getMonth(), 1);
+  // Current month only counts as due if past the 10th
+  const finMois = jour >= 10
+    ? new Date(now.getFullYear(), now.getMonth(), 1)
+    : new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+  const paidSet = new Set(paiements.filter(p => p.locataire === loc.code && p.statut === 'Payé').map(p => p.periode));
+
+  // Find last paid month
+  let dernierMoisPaye = null;
+  const check = new Date(entree.getFullYear(), entree.getMonth(), 1);
+  while (check <= finMois) {
+    const p = check.getFullYear() + '-' + String(check.getMonth() + 1).padStart(2, '0');
+    if (paidSet.has(p)) dernierMoisPaye = { periode: p, mois: getMoisNom(check.getMonth()) + ' ' + check.getFullYear() };
+    check.setMonth(check.getMonth() + 1);
+  }
+
   while (d <= finMois) {
     const periode = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-    const paye = paiements.some(p => p.locataire === loc.code && p.statut === 'Payé' && p.periode === periode);
-    if (!paye) moisImpayes.push({ periode, mois: getMoisNom(d.getMonth()) + ' ' + d.getFullYear() });
+    if (!paidSet.has(periode)) moisImpayes.push({ periode, mois: getMoisNom(d.getMonth()) + ' ' + d.getFullYear() });
     d.setMonth(d.getMonth() + 1);
   }
-  return { moisImpayes, total: moisImpayes.length * loc.loyer }
+  return { moisImpayes, total: moisImpayes.length * loc.loyer, dernierMoisPaye }
 }
 async function renderLocataires() {
   const locs = await load('locataires');
@@ -453,15 +490,108 @@ async function renderLocataires() {
   const search = (document.getElementById('searchLoc').value || '').toLowerCase();
   const filtered = locs.filter(l => !search || l.nom.toLowerCase().includes(search) || l.code.toLowerCase().includes(search));
   const tbody = document.querySelector('#tableLocataires tbody');
-  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#9CA3AF">Aucun locataire</td></tr>'; return }
-  tbody.innerHTML = filtered.map(l => {
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#9CA3AF">Aucun locataire</td></tr>'; return }
+  const moisNoms = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
+  const moisComplets = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  tbody.innerHTML = filtered.map((l, idx) => {
     const bien = biens.find(b => b.code === l.bien); const arr = getArrieres(l);
     const statBadge = l.statut === 'Actif' ? 'badge-success' : 'badge-secondary';
-    const arrBadge = arr.total > 0 ? `<span class="badge badge-danger">${fmt(arr.total)}</span>` : '<span class="badge badge-success">À jour</span>';
+    const arrBadge = arr.total > 0 ? `<span class="badge badge-danger">${fmt(arr.total)} (${arr.moisImpayes.length} mois)</span>` : '<span class="badge badge-success">À jour</span>';
     const bienLabel = bien ? (bien.immeuble ? bien.immeuble + ' / ' + (bien.appartement || bien.type) : bien.type + ' ' + bien.adresse) : '-';
-    return `<tr><td><strong>${l.code}</strong></td><td>${l.nom}</td><td>${l.telephone}</td><td>${bienLabel}</td><td>${fmt(l.loyer)}</td><td>${arrBadge}</td><td><span class="badge ${statBadge}">${l.statut}</span></td><td><button class="btn btn-primary btn-sm" onclick="voirProfil('${l.code}')" title="Profil"><i class="fas fa-eye"></i></button> <button class="btn btn-danger btn-sm" onclick="supprimerLocataire('${l.code}')"><i class="fas fa-trash"></i></button></td></tr>`
+    // Dernier mois payé - from getArrieres
+    let dernierLabel = 'Aucun';
+    let dernierBadgeClass = 'badge-secondary';
+    if (arr.dernierMoisPaye) { dernierLabel = arr.dernierMoisPaye.mois; dernierBadgeClass = 'badge-info'; }
+    const pickerId = 'mp-' + l.code;
+    return `<tr><td><strong>${l.code}</strong></td><td>${l.nom}</td><td>${l.telephone}</td><td>${bienLabel}</td><td>${fmt(l.loyer)}</td><td><div class="month-picker-wrap"><span class="month-picker-btn badge ${dernierBadgeClass}" onclick="toggleMonthPicker('${pickerId}','${l.code}')">${dernierLabel} <i class="fas fa-calendar-alt" style="font-size:.65rem;opacity:.7"></i></span><div class="month-picker-popup" id="${pickerId}"></div></div></td><td>${arrBadge}</td><td><span class="badge ${statBadge}">${l.statut}</span></td><td><button class="btn btn-primary btn-sm" onclick="voirProfil('${l.code}')" title="Profil"><i class="fas fa-eye"></i></button> <button class="btn btn-danger btn-sm" onclick="supprimerLocataire('${l.code}')"><i class="fas fa-trash"></i></button></td></tr>`
   }).join('')
 }
+
+// ===== MONTH PICKER =====
+let mpActiveId = null;
+function toggleMonthPicker(pickerId, locCode) {
+  // Close any other open picker
+  if (mpActiveId && mpActiveId !== pickerId) {
+    const prev = document.getElementById(mpActiveId);
+    if (prev) prev.classList.remove('show');
+  }
+  const popup = document.getElementById(pickerId);
+  if (popup.classList.contains('show')) { popup.classList.remove('show'); mpActiveId = null; return; }
+  mpActiveId = pickerId;
+  const now = new Date();
+  renderMonthPicker(pickerId, locCode, now.getFullYear());
+  popup.classList.add('show');
+}
+
+function renderMonthPicker(pickerId, locCode, year) {
+  const popup = document.getElementById(pickerId);
+  const moisCourts = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
+  const now = new Date();
+  const locs = cache.locataires || [];
+  const loc = locs.find(l => l.code === locCode);
+  const entree = loc ? new Date(loc.dateEntree) : new Date(2020, 0, 1);
+  const paiements = (cache._paiements || []).filter(p => p.locataire === locCode && p.statut === 'Payé');
+  const paidSet = new Set(paiements.map(p => p.periode));
+
+  let cells = '';
+  for (let m = 0; m < 12; m++) {
+    const periode = year + '-' + String(m + 1).padStart(2, '0');
+    const d = new Date(year, m, 1);
+    const entreeMonth = new Date(entree.getFullYear(), entree.getMonth(), 1);
+    const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    if (d < entreeMonth) {
+      cells += `<div class="mp-cell before">${moisCourts[m]}</div>`;
+    } else if (d > currentMonth) {
+      cells += `<div class="mp-cell future">${moisCourts[m]}</div>`;
+    } else if (paidSet.has(periode)) {
+      cells += `<div class="mp-cell paid" title="Payé">${moisCourts[m]}</div>`;
+    } else {
+      const isCurrent = d.getTime() === currentMonth.getTime();
+      const cls = isCurrent ? 'current' : 'unpaid';
+      cells += `<div class="mp-cell ${cls}" onclick="payFromPicker('${locCode}','${periode}','${pickerId}',${year})" title="Cliquer pour marquer payé">${moisCourts[m]}</div>`;
+    }
+  }
+
+  popup.innerHTML = `
+    <div class="mp-header">
+      <button onclick="renderMonthPicker('${pickerId}','${locCode}',${year - 1})"><i class="fas fa-chevron-left"></i></button>
+      <span>${year}</span>
+      <button onclick="renderMonthPicker('${pickerId}','${locCode}',${year + 1})"><i class="fas fa-chevron-right"></i></button>
+    </div>
+    <div class="mp-grid">${cells}</div>
+  `;
+}
+
+async function payFromPicker(locCode, periode, pickerId, year) {
+  const loc = (cache.locataires || []).find(l => l.code === locCode);
+  if (!loc) return;
+  const moisComplets = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const [py, pm] = periode.split('-').map(Number);
+  const moisLabel = moisComplets[pm - 1] + ' ' + py;
+  if (!confirm('Enregistrer le paiement de ' + loc.nom + ' pour ' + moisLabel + ' (' + fmt(loc.loyer) + ') ?')) return;
+  try {
+    await api('paiements', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locataire: locCode, periode, montant: loc.loyer, date: new Date().toISOString().split('T')[0], mode: 'Espèces', statut: 'Payé' })
+    });
+    invalidate();
+    toast('Paiement enregistré pour ' + moisLabel);
+    cache._paiements = await load('paiements');
+    renderMonthPicker(pickerId, locCode, year);
+    await renderLocataires();
+  } catch(e) { toast('Erreur: ' + e.message) }
+}
+
+// Close picker on outside click
+document.addEventListener('click', (e) => {
+  if (mpActiveId && !e.target.closest('.month-picker-wrap')) {
+    const popup = document.getElementById(mpActiveId);
+    if (popup) popup.classList.remove('show');
+    mpActiveId = null;
+  }
+});
 
 // ===== PROFIL LOCATAIRE =====
 async function voirProfil(code) {
@@ -540,53 +670,147 @@ async function voirProfil(code) {
 async function fillPayLocSelect() {
   const locs = (await load('locataires')).filter(l => l.statut === 'Actif');
   document.getElementById('payLocataire').innerHTML = '<option value="">-- Choisir --</option>' + locs.map(l => `<option value="${l.code}">${l.code} - ${l.nom}</option>`).join('');
-  const now = new Date(); document.getElementById('payPeriode').value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  document.getElementById('payDate').value = now.toISOString().split('T')[0]
+  document.getElementById('payDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('payInfoBox').style.display = 'none';
 }
-async function autoFillPayLoyer() {
+async function autoFillPayInfo() {
   const code = document.getElementById('payLocataire').value;
   const locs = await load('locataires');
   const loc = locs.find(l => l.code === code);
-  document.getElementById('payMontant').value = loc ? loc.loyer : ''
+  const infoBox = document.getElementById('payInfoBox');
+  if (!loc) { document.getElementById('payMontant').value = ''; infoBox.style.display = 'none'; return; }
+  cache._paiements = await load('paiements');
+  const arr = getArrieres(loc);
+  document.getElementById('payMontant').value = loc.loyer;
+  // Auto-set period to next unpaid month
+  if (arr.moisImpayes.length > 0) {
+    document.getElementById('payPeriode').value = arr.moisImpayes[0].periode;
+    const dernierInfo = arr.dernierMoisPaye ? arr.dernierMoisPaye.mois : 'Aucun';
+    infoBox.innerHTML = `<strong>${loc.nom}</strong> — Dernier mois payé: <span class="badge badge-info">${dernierInfo}</span> | Arriérés: <span class="badge badge-danger">${fmt(arr.total)} (${arr.moisImpayes.length} mois)</span><br><small>Prochain mois à couvrir: <strong>${arr.moisImpayes[0].mois}</strong></small>`;
+    infoBox.style.display = 'block';
+  } else {
+    const now = new Date();
+    document.getElementById('payPeriode').value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    infoBox.innerHTML = `<strong>${loc.nom}</strong> — <span class="badge badge-success">À jour</span>`;
+    infoBox.style.display = 'block';
+  }
 }
 async function ajouterPaiement() {
-  const p = { locataire: document.getElementById('payLocataire').value, periode: document.getElementById('payPeriode').value, montant: parseInt(document.getElementById('payMontant').value) || 0, date: document.getElementById('payDate').value, mode: document.getElementById('payMode').value, reference: document.getElementById('payRef').value, statut: document.getElementById('payStatut').value };
+  const p = { locataire: document.getElementById('payLocataire').value, periode: document.getElementById('payPeriode').value, montant: parseInt(document.getElementById('payMontant').value) || 0, date: document.getElementById('payDate').value, mode: document.getElementById('payMode').value, reference: document.getElementById('payRef').value, statut: 'Payé' };
   if (!p.locataire || !p.periode || !p.montant) { toast('Remplissez tous les champs requis', 'error'); return }
   try {
     await api('paiements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
-    invalidate(); closeModal('modalPaiement'); toast('Paiement enregistré !'); await renderPaiements();
+    invalidate(); closeModal('modalPaiement'); toast('Paiement enregistré !');
+    await refreshAll();
   } catch (e) { toast(e.message, 'error') }
 }
 async function supprimerPaiement(num) {
   if (!confirm('Supprimer ce paiement ?')) return;
   try {
     await api('paiements/' + num, { method: 'DELETE' });
-    invalidate(); toast('Paiement supprimé'); await renderPaiements();
+    invalidate(); toast('Paiement supprimé'); await refreshAll();
   } catch (e) { toast(e.message, 'error') }
 }
 async function renderPaiements() {
   const pays = await load('paiements');
   const locs = await load('locataires');
+  const biens = await load('biens');
+  cache._paiements = pays;
   const search = (document.getElementById('searchPay').value || '').toLowerCase();
-  const filtered = pays.filter(p => { const loc = locs.find(l => l.code === p.locataire); const name = loc ? loc.nom : ''; return !search || p.numero.toLowerCase().includes(search) || name.toLowerCase().includes(search) || p.periode.includes(search) });
+
+  // Build month filter options
+  const filterSelect = document.getElementById('payFilterMonth');
+  const periodes = [...new Set(pays.map(p => p.periode))].sort().reverse();
+  const now = new Date();
+  const currentPeriode = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  if (!periodes.includes(currentPeriode)) periodes.unshift(currentPeriode);
+  const moisComplets = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const selectedPeriode = filterSelect.value || currentPeriode;
+  filterSelect.innerHTML = periodes.map(p => {
+    const [y, m] = p.split('-').map(Number);
+    return `<option value="${p}" ${p === selectedPeriode ? 'selected' : ''}>${moisComplets[m-1]} ${y}</option>`;
+  }).join('');
+
+  // Get active locataires and show monthly view
+  const activeLocs = locs.filter(l => l.statut === 'Actif');
+  const filtered = search ? activeLocs.filter(l => l.nom.toLowerCase().includes(search) || l.code.toLowerCase().includes(search)) : activeLocs;
+
+  // KPIs for selected month
+  const monthPays = pays.filter(p => p.periode === selectedPeriode && p.statut === 'Payé');
+  const totalEncaisse = monthPays.reduce((s, p) => s + p.montant, 0);
+  const totalAttendu = activeLocs.reduce((s, l) => s + l.loyer, 0);
+  const nbPayes = new Set(monthPays.map(p => p.locataire)).size;
+  document.getElementById('payKpis').innerHTML = `
+    <div class="kpi-card"><div class="icon" style="color:var(--success)"><i class="fas fa-check-circle"></i></div><div class="value">${nbPayes}/${activeLocs.length}</div><div class="label">Locataires payés</div></div>
+    <div class="kpi-card"><div class="icon" style="color:var(--primary)"><i class="fas fa-money-bill"></i></div><div class="value">${fmt(totalEncaisse)}</div><div class="label">Encaissé</div></div>
+    <div class="kpi-card"><div class="icon" style="color:var(--warning)"><i class="fas fa-clock"></i></div><div class="value">${fmt(totalAttendu - totalEncaisse)}</div><div class="label">Restant dû</div></div>`;
+
   const tbody = document.querySelector('#tablePaiements tbody');
-  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#9CA3AF">Aucun paiement</td></tr>'; return }
-  tbody.innerHTML = filtered.map(p => {
-    const loc = locs.find(l => l.code === p.locataire);
-    const badge = p.statut === 'Payé' ? 'badge-success' : p.statut === 'Partiel' ? 'badge-warning' : 'badge-danger';
-    return `<tr><td><strong>${p.numero}</strong></td><td>${loc ? loc.nom : p.locataire}</td><td>${p.periode}</td><td>${fmt(p.montant)}</td><td>${fmtDate(p.date)}</td><td>${p.mode}</td><td><span class="badge ${badge}">${p.statut}</span></td><td><button class="btn btn-danger btn-sm" onclick="supprimerPaiement('${p.numero}')"><i class="fas fa-trash"></i></button></td></tr>`
-  }).join('')
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#9CA3AF">Aucun locataire actif</td></tr>'; return }
+
+  tbody.innerHTML = filtered.map(l => {
+    const bien = biens.find(b => b.code === l.bien);
+    const bienLabel = bien ? (bien.immeuble ? bien.immeuble + ' / ' + (bien.appartement || bien.type) : bien.type) : '-';
+    const arr = getArrieres(l);
+    const dernierLabel = arr.dernierMoisPaye ? arr.dernierMoisPaye.mois : 'Aucun';
+    const dernierClass = arr.dernierMoisPaye ? 'badge-info' : 'badge-secondary';
+    // Payment for selected month
+    const monthPay = pays.find(p => p.locataire === l.code && p.periode === selectedPeriode && p.statut === 'Payé');
+    let statutBadge, montantCell, dateCell, modeCell, actionCell;
+    if (monthPay) {
+      statutBadge = '<span class="badge badge-success">Payé</span>';
+      montantCell = fmt(monthPay.montant);
+      dateCell = fmtDate(monthPay.date);
+      modeCell = monthPay.mode;
+      actionCell = `<button class="btn btn-danger btn-sm" onclick="supprimerPaiement('${monthPay.numero}')" title="Annuler"><i class="fas fa-times"></i></button>`;
+    } else {
+      statutBadge = '<span class="badge badge-danger">Impayé</span>';
+      montantCell = '-';
+      dateCell = '-';
+      modeCell = '-';
+      actionCell = `<button class="btn btn-success btn-sm" onclick="quickPay('${l.code}','${selectedPeriode}',${l.loyer})" title="Payer ce mois"><i class="fas fa-plus"></i> Payer</button>`;
+    }
+    return `<tr><td><strong>${l.nom}</strong><br><small style="color:#9CA3AF">${l.code}</small></td><td>${bienLabel}</td><td>${fmt(l.loyer)}</td><td><span class="badge ${dernierClass}">${dernierLabel}</span></td><td>${statutBadge}</td><td>${montantCell}</td><td>${dateCell}</td><td>${modeCell}</td><td>${actionCell}</td></tr>`;
+  }).join('');
+}
+async function quickPay(locCode, periode, montant) {
+  const moisComplets = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const [y, m] = periode.split('-').map(Number);
+  const locs = await load('locataires');
+  const loc = locs.find(l => l.code === locCode);
+  if (!confirm(`Enregistrer le paiement de ${loc.nom} pour ${moisComplets[m-1]} ${y} (${fmt(montant)}) ?`)) return;
+  try {
+    await api('paiements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locataire: locCode, periode, montant, date: new Date().toISOString().split('T')[0], mode: 'Espèces', statut: 'Payé' }) });
+    invalidate(); toast('Paiement enregistré !'); await refreshAll();
+  } catch(e) { toast(e.message, 'error') }
 }
 
 // ===== CHARGES =====
 async function fillAllBienSelect(modalId) {
   const biens = await load('biens');
-  const selId = modalId === 'modalCharge' ? 'chargeBien' : 'entBien';
-  document.getElementById(selId).innerHTML = '<option value="">-- Choisir --</option>' + biens.map(b => `<option value="${b.code}">${b.code} - ${b.immeuble ? b.immeuble + ' / ' + (b.appartement || b.type) : b.type + ' ' + b.adresse}</option>`).join('')
+  if (modalId === 'modalCharge') {
+    document.getElementById('chargeBien').innerHTML = '<option value="">-- Choisir --</option>' + biens.map(b => `<option value="${b.code}">${b.code} - ${b.immeuble ? b.immeuble + ' / ' + (b.appartement || b.type) : b.type + ' ' + b.adresse}</option>`).join('');
+    // Fill immeuble select with unique immeubles
+    const immeubles = [...new Set(biens.filter(b => b.immeuble).map(b => b.immeuble))];
+    document.getElementById('chargeImmeuble').innerHTML = '<option value="">-- Choisir --</option>' + immeubles.map(i => `<option value="${i}">${i}</option>`).join('');
+    onChargeTypeChange();
+  } else {
+    document.getElementById('entBien').innerHTML = '<option value="">-- Choisir --</option>' + biens.map(b => `<option value="${b.code}">${b.code} - ${b.immeuble ? b.immeuble + ' / ' + (b.appartement || b.type) : b.type + ' ' + b.adresse}</option>`).join('');
+  }
+}
+function onChargeTypeChange() {
+  const type = document.getElementById('chargeType').value;
+  const isSDE = type === 'Eau/SDE';
+  document.getElementById('chargeBienGroup').style.display = isSDE ? 'none' : 'block';
+  document.getElementById('chargeImmeubleGroup').style.display = isSDE ? 'block' : 'none';
+  if (isSDE) document.getElementById('chargeFournisseur').value = 'SDE';
 }
 async function ajouterCharge() {
-  const c = { bien: document.getElementById('chargeBien').value, type: document.getElementById('chargeType').value, date: document.getElementById('chargeDate').value, montant: parseInt(document.getElementById('chargeMontant').value) || 0, fournisseur: document.getElementById('chargeFournisseur').value, description: document.getElementById('chargeDesc').value, statut: document.getElementById('chargeStatut').value };
-  if (!c.bien || !c.montant) { toast('Remplissez bien et montant', 'error'); return }
+  const type = document.getElementById('chargeType').value;
+  const isSDE = type === 'Eau/SDE';
+  const bien = isSDE ? document.getElementById('chargeImmeuble').value : document.getElementById('chargeBien').value;
+  const c = { bien, type, date: document.getElementById('chargeDate').value, montant: parseInt(document.getElementById('chargeMontant').value) || 0, fournisseur: document.getElementById('chargeFournisseur').value, reference: document.getElementById('chargeReference').value, description: document.getElementById('chargeDesc').value, statut: document.getElementById('chargeStatut').value };
+  if (!c.bien || !c.montant) { toast('Remplissez bien/immeuble et montant', 'error'); return }
   try {
     await api('charges', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(c) });
     invalidate('charges'); closeModal('modalCharge'); toast('Charge ajoutée !'); await renderCharges();
@@ -602,10 +826,14 @@ async function supprimerCharge(num) {
 async function renderCharges() {
   const charges = await load('charges');
   const search = (document.getElementById('searchCharges').value || '').toLowerCase();
-  const filtered = charges.filter(c => !search || c.numero.toLowerCase().includes(search) || c.type.toLowerCase().includes(search) || c.bien.toLowerCase().includes(search));
+  const filtered = charges.filter(c => !search || c.numero.toLowerCase().includes(search) || c.type.toLowerCase().includes(search) || c.bien.toLowerCase().includes(search) || (c.reference || '').toLowerCase().includes(search));
   const tbody = document.querySelector('#tableCharges tbody');
-  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#9CA3AF">Aucune charge</td></tr>'; return }
-  tbody.innerHTML = filtered.map(c => `<tr><td><strong>${c.numero}</strong></td><td>${c.bien}</td><td>${c.type}</td><td>${fmtDate(c.date)}</td><td>${fmt(c.montant)}</td><td>${c.fournisseur || '-'}</td><td><button class="btn btn-danger btn-sm" onclick="supprimerCharge('${c.numero}')"><i class="fas fa-trash"></i></button></td></tr>`).join('')
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#9CA3AF">Aucune charge</td></tr>'; return }
+  tbody.innerHTML = filtered.map(c => {
+    const isImmeuble = c.type === 'Eau/SDE';
+    const bienLabel = isImmeuble ? `<i class="fas fa-building" style="color:var(--primary)"></i> ${c.bien}` : c.bien;
+    return `<tr><td><strong>${c.numero}</strong></td><td>${bienLabel}</td><td>${c.type}</td><td>${c.reference || '-'}</td><td>${fmtDate(c.date)}</td><td>${fmt(c.montant)}</td><td>${c.fournisseur || '-'}</td><td><button class="btn btn-danger btn-sm" onclick="supprimerCharge('${c.numero}')"><i class="fas fa-trash"></i></button></td></tr>`;
+  }).join('')
 }
 
 // ===== ENTRETIEN =====
@@ -647,7 +875,9 @@ async function envoyerRappelArrieres(code) {
   cache._paiements = await load('paiements');
   const arr = getArrieres(loc); if (!arr.moisImpayes.length) return;
   const moisListe = arr.moisImpayes.map(m => m.mois).join(', ');
-  const msg = `Bonjour Mr/Mme ${loc.nom}, l'agence SOPRIMEC vous rappelle que vous devez solder vos arriérés des mois de ${moisListe} avant le 05 du mois en cours. Merci de vous rapprocher de l'agence au 78 893 27 87.`;
+  const dernierInfo = arr.dernierMoisPaye ? `Dernier mois payé: ${arr.dernierMoisPaye.mois}. ` : '';
+  const fmtMontant = arr.total.toLocaleString('fr-FR');
+  const msg = `Bonjour Mr/Mme ${loc.nom}, l'agence SOPRIMEC vous rappelle que vous avez des arriérés de ${fmtMontant} FCFA pour les mois de ${moisListe}. ${dernierInfo}Merci de régulariser votre situation auprès de l'agence au 78 893 27 87.`;
   envoyerWhatsApp(loc.telephone, msg)
 }
 
